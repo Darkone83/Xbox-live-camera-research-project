@@ -5,6 +5,12 @@ mapped from `default.xbe` + `xboxkrnl.pdb` + the XDK headers. Companion to
 `CAMERA_INIT.md`. As of this pass the path is traced **end to end** — app loop
 down to OHCI — so this doc is now the master map.
 
+> This is the architecture trace (how the original XBE works). For authoritative
+> **struct layouts and the typed API**, use `xbox_usb.h` (the `_URB` union,
+> descriptors, and `USB_BUILD_*` macros are folded verbatim from the XDK `usb.h`).
+> Where this trace's raw-byte offsets and the header disagree, **the header wins** —
+> see the §7 update note.
+
 ---
 
 ## 0. The complete chain (top to bottom)
@@ -252,38 +258,46 @@ operation is distinguished by the request fields (SETUP vs iso), not the type by
 
 ---
 
-## 7. The request block (URB) — control transfer, VERIFIED
+## 7. The request block (URB) — control transfer
 
-Extracted verbatim from the descriptor read in `FUN_001baa80`. Bugcheck-critical,
-confirmed not guessed:
+> **UPDATE:** the authoritative `_URB` layout is now folded into `xbox_usb.h`
+> verbatim from the XDK `usb.h`. The raw-byte observation below was a correct read
+> of the *bytes* in `FUN_001baa80`, but the field *interpretation* was wrong: the
+> `0x30`/`0x40` at `+0x00`/`+0x01` are the `_URB_HEADER`'s **`Length`** and
+> **`Function`** fields, NOT a "subcode/type", and the real struct
+> (`URB_CONTROL_TRANSFER`: `Hdr, EndpointHandle, TransferBufferLength,
+> TransferBuffer, TransferDirection, ShortTransferOK, InterruptDelay, Padding, Hca,
+> SetupPacket`) orders fields differently. **Use `xbox_usb.h` + the `USB_BUILD_*`
+> macros — do not hand-stamp these offsets.** The raw dump is kept only as the
+> original observation that the bytes matched.
+
+Raw bytes observed in `FUN_001baa80`'s GET_DESCRIPTOR build (interpretation
+corrected above):
 ```
-req + 0x00 : 0x30            subcode
-req + 0x01 : 0x40            type/function  -> FUN_001b84f0
-req + 0x04 : <status out>    result NTSTATUS, read after completion
-req + 0x08 : 0               callback (left 0; stack event used, bit 0x40 set)
-req + 0x0C : 0               context
-req + 0x10 : <pipe object>   gating dependency — every transfer needs this
-req + 0x14 : 0x12            transfer length (18 = device descriptor)
-req + 0x18 : <buffer ptr>    where data lands
-req + 0x1C : 02 01 00        pipe/descriptor selector bytes (meaning TBD)
-req + 0x28 : 80 06 00 01     SETUP: bmRequestType=0x80, bRequest=0x06 (GET_DESCRIPTOR), wValue=0x0100
-req + 0x2C : 00 00           wIndex = 0
-req + 0x2E : 12 00           wLength = 18
++0x00 : 0x30          = Hdr.Length (sizeof URB_CONTROL_TRANSFER), NOT a "subcode"
++0x01 : 0x40          = Hdr.Function (URB_FUNCTION_CONTROL_TRANSFER = async bit), NOT "type"
++0x04 : <status out>  = Hdr.Status
+...                     (callback/context = Hdr.CompleteProc/CompleteContext)
++0x10 : <handle>      = EndpointHandle
++0x14 : 0x12          = TransferBufferLength (18 = device descriptor)
++0x18 : <buffer>      = TransferBuffer
+SETUP : 80 06 00 01 00 00 12 00  = SetupPacket {bmRequestType=0x80, bRequest=0x06
+                                    GET_DESCRIPTOR, wValue=0x0100, wIndex=0, wLength=18}
 ```
-Call: `FUN_001be430(&req)`.
+Call: `IUsbDevice::SubmitRequest(&urb)` (= `FUN_001be430`).
 
 ---
 
 ## 8. PID-read milestone — concrete recipe
 
-Clone the §7 struct, retargeted to read one OV7648 sensor register over the
-OV519 control endpoint:
-- `req+0x18` → 1-byte buffer; `req+0x14` = 1; `req+0x2E` (wLength) = 1.
-- `req+0x28` SETUP → **OV519 vendor register-read** (not GET_DESCRIPTOR): vendor
-  `bmRequestType` (~`0xC1`), OV519 read `bRequest`, `wIndex` = register (`0x0A`).
-- needs a control-pipe object at `req+0x10`.
-- `FUN_001be430(&req)`, read the byte: expect `0x76` (reg `0x0A`), then `0x48`
-  (reg `0x0B`) → confirms OV7648 / the EyeToy.
+Build a control-IN URB with `USB_BUILD_CONTROL_TRANSFER` (xbox_usb.h), retargeted to
+read one OV7648 sensor register over the OV519 control endpoint:
+- buffer = 1 byte; `wLength` = 1.
+- SETUP → **OV519 vendor register-read** (not GET_DESCRIPTOR): vendor
+  `bmRequestType` (~`0xC1` = `USB_DEVICE_TO_HOST|USB_VENDOR_COMMAND|...`), OV519 read
+  `bRequest`, `wIndex` = register (`0x0A`).
+- `Device->SubmitRequest(&urb)`, read the byte: expect `0x76` (reg `0x0A`), then
+  `0x48` (reg `0x0B`) → confirms OV7648 / the EyeToy.
 
 Proves host hookup + URB layout + OV519 encoding at once.
 
@@ -330,9 +344,11 @@ Proves host hookup + URB layout + OV519 encoding at once.
    `FUN_001bfc50`/`FUN_001bf050` (§12: config-descriptor read + parse → tables +
    pipe). Read those two for full detail.
 
-**Build-prep — now MAPPED ON PAPER (§12):**
-5. Iso URB layout — DONE: header `0x4030`, submit `FUN_001be430`, TD enqueue
-   `FUN_001b8445` + doorbell `FUN_001b8358`. (Per-packet OHCI iso-TD fields = std spec.)
+**Build-prep — now AUTHORITATIVE (not just on paper):**
+5. Iso URB layout — DONE & TYPED: folded verbatim from XDK `usb.h` into
+   `xbox_usb.h` (`IsochOpenEndpoint`/`StartTransfer`/`AttachBuffer` arms +
+   `USB_BUILD_ISOCH_*` macros + `_USBD_ISOCH_TRANSFER_STATUS`). SLIX driver is a
+   worked example. (Submit `FUN_001be430`; per-packet OHCI iso-TD fields = std spec.)
 6. Frame path — DONE: completion `FUN_001b414c` fires `urb+0x08(urb, urb+0x0C)`;
    buffer `DAT_0022195c` + `0x30` header; convert RGB24→32bpp.
 
@@ -434,8 +450,15 @@ grab via the marshaller, or replicates the iso submit above directly.
 (grab) repeats; `FUN_000cdd80` sets the iso transfer count (stream-obj `+0x20`)
 and double-buffers.
 
-## Remaining unknowns are now only:
-- per-packet **OHCI isochronous-TD field layout** (standard OHCI, not Xbox-specific — spec, not RE)
-- **RXDK linkage**: a pointer to the camera `XPP_DEVICE_TYPE` (RXDK symbol/ordinal,
-  or its address in the built XBE via `.MAP`)
-- **hardware**: descriptor triggers on RXDK, first transfer round-trips, iso timing, stability
+## Remaining unknowns are now only (hardware):
+- **EyeToy `_PNP_CLASS_ID` / interface class** — the class-driver match key; read at attach.
+- **RXDK linkage in practice** — expected fine (same `xapilib.lib` RXDK requires); a
+  compile-and-link confirms the extern declarations resolve.
+- **hardware**: descriptor triggers on RXDK, first control transfer round-trips,
+  iso timing, stability.
+
+> Iso URB layout is no longer an unknown — the full iso arms (`IsochOpenEndpoint`
+> etc.), `_USBD_ISOCH_TRANSFER_STATUS`, `_USBD_ISOCH_BUFFER_DESCRIPTOR`, and the
+> `USB_BUILD_ISOCH_*` macros are folded verbatim from XDK `usb.h` into `xbox_usb.h`,
+> and the SLIX driver (`USB.zip`, see BUILD_SPEC §3.7) is a worked example of the
+> open→start→attach sequence. Per-packet OHCI iso-TD fields are standard OHCI spec.
