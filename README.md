@@ -61,11 +61,14 @@ mask from `GetButtons()` (deriving press edges locally).
 | File | Role |
 |------|------|
 | `cameratest.cpp` | The test harness — D3D8 setup, on-screen UI, the state machine that drives `xb_cam`, and the graceful not-found path. |
-| `input.cpp` / `input.h` | Shared ScreenChat controller module: device registration, hotplug, Duke/Type-S detection, and the unified `BTN_*` mask. |
+| `input.cpp` / `input.h` | Shared ScreenChat controller module: device registration, hotplug, Duke/Type-S detection, and the unified `BTN_*` mask. **Trimmed for this build** to register only GAMEPAD + MEMORY_UNIT — the ScreenChat original also registered voice mic/headphone and debug keyboard, whose XDK device-table symbols this project doesn't link and doesn't need. |
 | `xbox_native.h` | Native NT/Rtl declaration shim (the RXDK XTL headers omit these). Declares the real xboxkrnl exports `xb_cam.cpp` needs, with Xbox-correct ANSI `OBJECT_ATTRIBUTES`. Include after `<xtl.h>`; link `xboxkrnl.lib`. |
 | `gfxfont.h` | Embedded 8×8 bitmap font (ASCII `0x20`–`0x5F`) used to render the on-screen status text. No external font assets. |
 | `xb_cam.h` / `xb_cam.cpp` | The camera interface under test. Reference / example module — reconstructed from the RE work. |
 | `RESEARCH.md` | The full reverse-engineering write-up: hardware, driver architecture, camera object layout, registry + IOCTL maps, startup/shutdown sequences, the EyeToy hex patch, and the `XDEVICE_TYPE_CAMERA` finding. |
+| `CAMERA_INIT.md` | Camera bring-up: the `.set` register decode, format correction, feasibility verdict, phased plan, the debugging/instrumentation setup (CerBios + logging + `.MAP`), and the resume checkpoint. |
+| `USB_TRANSPORT.md` | The reverse-engineered USB transport layer: XAPILIB function map, submit chain, dispatch table, the **verified control-transfer URB layout**, and the PID-read milestone recipe. |
+| `ov7648_519.h` | EyeToy (OV7648 + OV519) register tables extracted from `7648519.set`: detection, bridge init, sensor init, 320×240 RGB24 format + framerate. |
 
 All sources are flat in the project root — no path-prefixed includes (local
 headers are included with `""`).
