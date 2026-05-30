@@ -323,16 +323,18 @@ Proves host hookup + URB layout + OV519 encoding at once.
    (flat decomp inlines `cefc0`; verify in Ghidra).
 2. `FUN_000cf340` default case — confirm `0x10c`/`0x106` just fill a caps/format
    blob, not a register write (last untraced command path).
-3. `DAT_00221af8` / `DAT_00221afc` install site — grab/stream handler pointers,
-   written indirectly; find via the data write-XREF on `0x00221AF8`.
-4. Setup cluster `FUN_001b52a5/52AB/52B1/52B7` — confirm config-descriptor read,
-   pipe-object creation (the `req+0x10` source), and format/alt-setting table fill.
+3. `DAT_00221af8` / `DAT_00221afc` — RESOLVED ENOUGH (§12). Indirect-install glue
+   (only a read from `FUN_001bdfa0` @ `0x1be0a4`); identity resists static analysis
+   but it's iso-submit glue over the mapped transport — not blocking.
+4. Setup cluster `FUN_001b52a5/52AB/52B1/52B7` — largely confirmed via
+   `FUN_001bfc50`/`FUN_001bf050` (§12: config-descriptor read + parse → tables +
+   pipe). Read those two for full detail.
 
-**Build-prep (needed to write the iso client, not strictly RE):**
-5. Iso URB layout — `FUN_001bfd30` + iso branch of `FUN_001b84f0` (control URB
-   is verified; iso isn't).
-6. Frame assembly — iso packets → 320×240 RGB24 (grab handler `DAT_00221af8`
-   + completion).
+**Build-prep — now MAPPED ON PAPER (§12):**
+5. Iso URB layout — DONE: header `0x4030`, submit `FUN_001be430`, TD enqueue
+   `FUN_001b8445` + doorbell `FUN_001b8358`. (Per-packet OHCI iso-TD fields = std spec.)
+6. Frame path — DONE: completion `FUN_001b414c` fires `urb+0x08(urb, urb+0x0C)`;
+   buffer `DAT_0022195c` + `0x30` header; convert RGB24→32bpp.
 
 **Closes only on hardware:** XInitDevices descriptor triggering on RXDK, first
 control transfer round-trip, iso scheduling, stability.
@@ -391,3 +393,49 @@ table of **device-type descriptors**; the camera's entry is a static struct at
 enumeration. XAPILIB creates the device + pipe objects; we get a callback with a
 port number and drive the 5-call API. The pipe object for `req+0x10` comes from
 the setup cluster, owned by XAPILIB.
+
+---
+
+## 12. Frame data path (static frame & motion)
+
+End to end, one frame:
+```
+1. read+parse CONFIG descriptor  FUN_001bfc50 → FUN_001bf050
+                                  (alloc 0x40, read wTotalLength@buf+2, grow+re-read;
+                                   parse fills the alt-setting/format table)
+2. open iso pipe                 fn-ptr @ streamobj+0xCC
+3. build iso URB                 header 0x4030 (control = 0x40); submit FUN_001be430
+4. enqueue TD + doorbell         FUN_001b8445 → FUN_001b8358
+                                  (queue: pipe+0x28 head / +0x2C tail; TD link +0x24;
+                                   TD packet-count +0x20, must be <4)
+5. HC fills frame buffer         DAT_0022195c (+ 0x30 request header)
+6. completion fires callback     FUN_001b414c: (*(urb+0x08))(urb, *(urb+0x0C))
+                                  → the app frame-ready cb stashed in DAT_00221960
+7. assemble + display            LockRect + RGB24→32bpp via the per-format
+                                  callbacks (PTR_DAT_001ff190), as FUN_00018E00 does
+```
+
+Concrete layout to code against:
+- **URB completion:** callback ptr at `urb+0x08`, context at `urb+0x0C`.
+- **iso vs control:** iso request header = `0x4030`, control = `0x40`; both submit
+  via `FUN_001be430` (same primitive).
+- **TD queue (OHCI):** pipe head `+0x28`, tail `+0x2C`; TD next-link `+0x24`;
+  TD packet-count `+0x20` (`<4`); doorbell `FUN_001b8358`.
+- **config-descriptor read:** grow-to-`wTotalLength` (`buf+2`) pattern; parse via
+  `FUN_001bf050` → populates the descriptor-derived format/alt-setting tables.
+
+**Grab / stream handlers (`DAT_00221af8` / `DAT_00221afc`):** the camera-driver's
+iso-submit glue. Installed **indirectly** (like `DAT_0022198c`) — `0x221af8` shows
+only a read, from `FUN_001bdfa0` @ `0x1be0a4`; no static write XREF. Exact identity
+resists static analysis, but **not on the critical path**: a homebrew issues the
+grab via the marshaller, or replicates the iso submit above directly.
+
+**Motion** = the same loop: cmd `3` (stream) primes via `DAT_00221afc`; cmd `0`
+(grab) repeats; `FUN_000cdd80` sets the iso transfer count (stream-obj `+0x20`)
+and double-buffers.
+
+## Remaining unknowns are now only:
+- per-packet **OHCI isochronous-TD field layout** (standard OHCI, not Xbox-specific — spec, not RE)
+- **RXDK linkage**: a pointer to the camera `XPP_DEVICE_TYPE` (RXDK symbol/ordinal,
+  or its address in the built XBE via `.MAP`)
+- **hardware**: descriptor triggers on RXDK, first transfer round-trips, iso timing, stability
