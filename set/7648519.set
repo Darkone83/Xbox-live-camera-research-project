@@ -1,0 +1,1113 @@
+[Sections]
+AddReg=OVT.7648519.Setting
+
+[OVT.7648519.Setting]
+;this data is for check camera type, there are four data segment 
+;1. I2C subAddress, 
+;2. which register driver should read
+;3. value mask
+;4. register value
+;HKR,%7648519Set%, OneChannelCheck,1, 55, 00, 80
+HKR,%7648519Set%, VersionCheck,1, 42, 0a, ff, 76
+HKR,%7648519Set%, MinorVersionCheck,1, 42, 0b, ff, 48
+HKR,%7648519Set%, ResetCamera,1, 12, 80, ff
+HKR,%7648519Set%, CameraName,,Ov7648519
+HKR,%7648519Set%, SensorWidth,0x10001, 640
+HKR,%7648519Set%, SensorHeight,0x10001, 480
+HKR,%7648519Set%, CurrentFormat,0x10001, 0x32024024
+HKR,%7648519Set%, CurrentFrameRate,0x10001, 30
+
+;USB controller register setting, only the registers that need change should 
+;set here, every three value form one group
+;Index, Value, Mask
+
+HKR,%7648519Set%,UsbSetting,1, 5d,03,ff, 53,9b,9b, 54,0f,ff, a2,20,ff, a3,18,ff, a4,04,ff, a5,28,ff, 37,00,ff, 55,02,ff, 20,0d,ff, 21,38,ff, 22,1d,ff, 17,50,ff, 37,00,ff, 40,ff,ff, 46,00,ff
+
+;Index, Value, Mask
+HKR,%7648519Set%,CameraSetting,1, 12,80,ff, 03,a4,ff, 04,30,ff, 05,88,ff, 06,60,ff, 11,00,ff, 12,05,ff, 13,a3,ff, 14,24,ff, 15,14,ff, 20,d0,ff, 23,de,ff, 24,30,ff, 25,7a,ff, 26,a2,ff, 27,e2,ff, 28,20,ff, 2a,90,ff, 2b,00,ff, 2d,05,ff, 2f,9d,ff, 30,00,ff, 31,c4,ff, 60,a6,ff, 61,e0,ff, 62,88,ff, 63,11,ff, 64,89,ff, 65,00,ff, 67,94,ff, 68,7a,ff, 69,08,ff, 6c,11,ff, 6d,33,ff, 6e,22,ff, 6f,00,ff, 74,20,ff, 75,06,ff, 77,c4,ff, 1f,41,ff
+
+HKR,%7648519Adj%,EnableLowLightControl,0x10001,1
+HKR,%7648519Adj%,ClockUpTh,0x10001,140
+HKR,%7648519Adj%,ClockDownTh,0x10001,50
+HKR,%7648519Adj%,CheckTime,0x10001,20
+HKR,%7648519Adj%,ClockUpCamRegs,1, 2a,90,ff, 16,00,ff, 1e,00,ff
+HKR,%7648519Adj%,ClockDownCamRegs,1, 2a,94,ff
+HKR,%7648519Adj%,ExposureCheck,1,10,82
+
+HKR,%7648519DP%,EnVideoYUVProc,0x10001,0
+HKR,%7648519DP%,EnVideoRGBProc,0x10001,0
+HKR,%7648519DP%,EnStillYUVProc,0x10001,0
+HKR,%7648519DP%,EnStillRGBProc,0x10001,0
+HKR,%7648519DP%,StillSharpness,0x10001,2   ; range  0 ~ 8
+HKR,%7648519DP%,DisableAutoLFCheck,0x10001,0
+; Enable to remove Flicker by takayosm
+HKR,%7648519DP%,SaveLastFrame,0x10001,1
+HKR,%7648519DP%,EnableSwQC,0x10001,0
+
+HKR,%7648519STIYUV%, UsbSetting,1, ff,00,ff
+
+HKR,%7648519STIRAW%, UsbSetting,1, ff,00,ff
+
+HKR,%7648519DP%, EnVideoYUVProc,0x10001,0
+HKR,%7648519DP%, EnVideoRGBProc,0x10001,0
+HKR,%7648519DP%, EnStillYUVProc,0x10001,0
+HKR,%7648519DP%, EnStillRGBProc,0x10001,0
+HKR,%7648519DP%, StillSharpness,0x10001,3   ; range  0 ~ 8
+; Enable to remove Flicker by takayosm
+;HKR,%7648519DP%, DisableAutoLFCheck,0x10001,1
+HKR,%7648519DP%, DisableAutoLFCheck,0x10001,0
+HKR,%7648519DP%, SaveLastFrame,0x10001,1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@
+;RGB24 640 x 480
+HKR, %7648519Vid640RGB24%, Tag, 0x10001, 0x64048024
+HKR, %7648519Vid640RGB24%, UsbSetting, 1, 10,28,ff, 11,3c,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,00,ff, 20,0c,ff, 25,03,ff, 26,00,ff
+HKR, %7648519Vid640RGB24%, CameraSetting, 1, 14,04,ff, 26,32,ff, 17,1a,ff, 18,ba,ff
+HKR, %7648519Vid640RGB24%, Width, 0x10001, 640
+HKR, %7648519Vid640RGB24%, Height, 0x10001, 480
+HKR, %7648519Vid640RGB24%, BitCount, 0x10001, 24
+HKR, %7648519Vid640RGB24%, FourCC, 0x10001, 0
+HKR, %7648519Vid640RGB24%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid640RGB24%, typFrameRate, 0x10001, 15000
+HKR, %7648519Vid640RGB24%, MinFrameRate, 0x10001, 5000
+HKR, %7648519Vid640RGB24%, Progressive, 0x10001, 1
+
+;************* Frame Rate = 30fps (Normal: 8 MHz)
+HKR, %7648519Vid640RGB24%\FrameRate0, UsbSetting, 1, a4,0c,ff, 23,ff,ff
+HKR, %7648519Vid640RGB24%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid640RGB24%\FrameRate0, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640RGB24%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid640RGB24%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Normal: 8 MHz)
+HKR, %7648519Vid640RGB24%\FrameRate1, UsbSetting, 1, a4,0c,ff, 23,1f,ff
+HKR, %7648519Vid640RGB24%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid640RGB24%\FrameRate1, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640RGB24%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid640RGB24%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Normal: 8 MHz)
+HKR, %7648519Vid640RGB24%\FrameRate2, UsbSetting, 1, a4,0c,ff, 23,1b,ff
+HKR, %7648519Vid640RGB24%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid640RGB24%\FrameRate2, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640RGB24%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid640RGB24%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Normal: 8 MHz)
+HKR, %7648519Vid640RGB24%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid640RGB24%\FrameRate3, CameraSetting, 1, 11,01,ff
+HKR, %7648519Vid640RGB24%\FrameRate3, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640RGB24%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid640RGB24%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Normal: 8MHz)
+HKR, %7648519Vid640RGB24%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid640RGB24%\FrameRate4, CameraSetting, 1, 11,01,ff
+HKR, %7648519Vid640RGB24%\FrameRate4, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640RGB24%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid640RGB24%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Normal: 8MHz)
+HKR, %7648519Vid640RGB24%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid640RGB24%\FrameRate5, CameraSetting, 1, 11,01,ff
+HKR, %7648519Vid640RGB24%\FrameRate5, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640RGB24%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid640RGB24%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;I420 640 x 480
+HKR, %7648519Vid640I420%, Tag, 0x10001, 0x64048012
+HKR, %7648519Vid640I420%, UsbSetting, 1, 10,28,ff, 11,3c,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,00,ff, 20,0c,ff, 25,03,ff, 26,00,ff
+HKR, %7648519Vid640I420%, CameraSetting, 1, 14,04,ff, 26,32,ff, 17,1a,ff, 18,ba,ff
+HKR, %7648519Vid640I420%, Width, 0x10001, 640
+HKR, %7648519Vid640I420%, Height, 0x10001, 480
+HKR, %7648519Vid640I420%, BitCount, 0x10001, 12
+HKR, %7648519Vid640I420%, FourCC, 0x10001, 0x30323449
+HKR, %7648519Vid640I420%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid640I420%, typFrameRate, 0x10001, 15000
+HKR, %7648519Vid640I420%, MinFrameRate, 0x10001, 5000
+HKR, %7648519Vid640I420%, Progressive, 0x10001, 1
+
+;************* Frame Rate = 30fps (Normal: 8MHz)
+HKR, %7648519Vid640I420%\FrameRate0, UsbSetting, 1, a4,0c,ff, 23,ff,ff
+HKR, %7648519Vid640I420%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid640I420%\FrameRate0, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640I420%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid640I420%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Normal: 8MHz)
+HKR, %7648519Vid640I420%\FrameRate1, UsbSetting, 1, a4,0c,ff, 23,1f,ff
+HKR, %7648519Vid640I420%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid640I420%\FrameRate1, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640I420%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid640I420%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Normal: 8MHz)
+HKR, %7648519Vid640I420%\FrameRate2, UsbSetting, 1, a4,0c,ff, 23,1b,ff
+HKR, %7648519Vid640I420%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid640I420%\FrameRate2, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640I420%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid640I420%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Normal: 8MHz)
+HKR, %7648519Vid640I420%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid640I420%\FrameRate3, CameraSetting, 1, 11,01,ff
+HKR, %7648519Vid640I420%\FrameRate3, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640I420%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid640I420%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Normal: 8MHz)
+HKR, %7648519Vid640I420%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid640I420%\FrameRate4, CameraSetting, 1, 11,01,ff
+HKR, %7648519Vid640I420%\FrameRate4, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640I420%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid640I420%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Normal: 8MHz)
+HKR, %7648519Vid640I420%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid640I420%\FrameRate5, CameraSetting, 1, 11,01,ff
+HKR, %7648519Vid640I420%\FrameRate5, AlternateSetting, 0x10001, 4
+HKR, %7648519Vid640I420%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid640I420%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@
+;RGB24 352 x 288
+HKR, %7648519Vid352RGB24%, Tag, 0x10001, 0x35228824
+HKR, %7648519Vid352RGB24%, UsbSetting, 1, 10,14,ff, 11,1e,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,00,ff, 20,0d,ff, 25,01,ff, 26,00,ff
+HKR, %7648519Vid352RGB24%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid352RGB24%, Width, 0x10001, 352
+HKR, %7648519Vid352RGB24%, Height, 0x10001, 288
+HKR, %7648519Vid352RGB24%, BitCount, 0x10001, 24
+HKR, %7648519Vid352RGB24%, FourCC, 0x10001, 0
+HKR, %7648519Vid352RGB24%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid352RGB24%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid352RGB24%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid352RGB24%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid352RGB24%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352RGB24%\FrameRate0, AlternateSetting, 0x10001, 2
+HKR, %7648519Vid352RGB24%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid352RGB24%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid352RGB24%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid352RGB24%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352RGB24%\FrameRate1, AlternateSetting, 0x10001, 2
+HKR, %7648519Vid352RGB24%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid352RGB24%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid352RGB24%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid352RGB24%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352RGB24%\FrameRate2, AlternateSetting, 0x10001, 2
+HKR, %7648519Vid352RGB24%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid352RGB24%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid352RGB24%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid352RGB24%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352RGB24%\FrameRate3, AlternateSetting, 0x10001, 2
+HKR, %7648519Vid352RGB24%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid352RGB24%\FrameRate3, QualityLevel, 0x10001, 1;
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid352RGB24%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid352RGB24%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352RGB24%\FrameRate4, AlternateSetting, 0x10001, 2
+HKR, %7648519Vid352RGB24%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid352RGB24%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid352RGB24%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid352RGB24%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352RGB24%\FrameRate5, AlternateSetting, 0x10001, 2
+HKR, %7648519Vid352RGB24%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid352RGB24%\FrameRate5, QualityLevel, 0x10001, 1;
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@
+;I420 352 x 288
+HKR, %7648519Vid352I420%, Tag, 0x10001, 0x35228812
+HKR, %7648519Vid352I420%, UsbSetting, 1, 10,14,ff, 11,1e,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,00,ff, 20,0d,ff, 25,01,ff, 26,00,ff
+HKR, %7648519Vid352I420%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid352I420%, Width, 0x10001, 352
+HKR, %7648519Vid352I420%, Height, 0x10001, 288
+HKR, %7648519Vid352I420%, BitCount, 0x10001, 12
+HKR, %7648519Vid352I420%, FourCC, 0x10001, 0x30323449
+HKR, %7648519Vid352I420%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid352I420%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid352I420%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid352I420%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid352I420%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352I420%\FrameRate0, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid352I420%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid352I420%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid352I420%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid352I420%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352I420%\FrameRate1, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid352I420%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid352I420%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid352I420%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid352I420%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352I420%\FrameRate2, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid352I420%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid352I420%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid352I420%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid352I420%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352I420%\FrameRate3, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid352I420%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid352I420%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid352I420%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid352I420%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352I420%\FrameRate4, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid352I420%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid352I420%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid352I420%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid352I420%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid352I420%\FrameRate5, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid352I420%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid352I420%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;RGB24 320 x 240
+HKR, %7648519Vid320RGB24%, Tag, 0x10001, 0x32024024
+HKR, %7648519Vid320RGB24%, UsbSetting, 1, 10,14,ff, 11,1e,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,00,ff, 20,0d,ff, 25,01,ff, 26,00,ff
+HKR, %7648519Vid320RGB24%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid320RGB24%, Width, 0x10001, 320
+HKR, %7648519Vid320RGB24%, Height, 0x10001, 240
+HKR, %7648519Vid320RGB24%, BitCount, 0x10001, 24
+HKR, %7648519Vid320RGB24%, FourCC, 0x10001, 0
+HKR, %7648519Vid320RGB24%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid320RGB24%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid320RGB24%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid320RGB24%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid320RGB24%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320RGB24%\FrameRate0, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320RGB24%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid320RGB24%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid320RGB24%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid320RGB24%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320RGB24%\FrameRate1, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320RGB24%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid320RGB24%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid320RGB24%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid320RGB24%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320RGB24%\FrameRate2, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320RGB24%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid320RGB24%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid320RGB24%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid320RGB24%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320RGB24%\FrameRate3, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320RGB24%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid320RGB24%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid320RGB24%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid320RGB24%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320RGB24%\FrameRate4, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320RGB24%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid320RGB24%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid320RGB24%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid320RGB24%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320RGB24%\FrameRate5, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320RGB24%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid320RGB24%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;I420 320 x 240
+HKR, %7648519Vid320I420%, Tag, 0x10001, 0x32024012
+HKR, %7648519Vid320I420%, UsbSetting, 1, 10,14,ff, 11,1e,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,00,ff, 20,0d,ff, 25,01,ff, 26,00,ff
+HKR, %7648519Vid320I420%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid320I420%, Width, 0x10001, 320
+HKR, %7648519Vid320I420%, Height, 0x10001, 240
+HKR, %7648519Vid320I420%, BitCount, 0x10001, 12
+HKR, %7648519Vid320I420%, FourCC, 0x10001, 0x30323449
+HKR, %7648519Vid320I420%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid320I420%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid320I420%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid320I420%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid320I420%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320I420%\FrameRate0, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320I420%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid320I420%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid320I420%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid320I420%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320I420%\FrameRate1, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320I420%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid320I420%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid320I420%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid320I420%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320I420%\FrameRate2, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320I420%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid320I420%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid320I420%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid320I420%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320I420%\FrameRate3, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320I420%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid320I420%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid320I420%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid320I420%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320I420%\FrameRate4, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320I420%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid320I420%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid320I420%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid320I420%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid320I420%\FrameRate5, AlternateSetting, 0x10001, 3
+HKR, %7648519Vid320I420%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid320I420%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;RGB24 176 x 144
+HKR, %7648519Vid176RGB24%, Tag, 0x10001, 0x17614424
+HKR, %7648519Vid176RGB24%, UsbSetting, 1, 10,0a,ff, 11,0f,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,19,ff, 20,0d,ff, 25,03,ff, 26,00,ff
+HKR, %7648519Vid176RGB24%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid176RGB24%, Width, 0x10001, 176
+HKR, %7648519Vid176RGB24%, Height, 0x10001, 144
+HKR, %7648519Vid176RGB24%, BitCount, 0x10001, 24
+HKR, %7648519Vid176RGB24%, FourCC, 0x10001, 0
+HKR, %7648519Vid176RGB24%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid176RGB24%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid176RGB24%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid176RGB24%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid176RGB24%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176RGB24%\FrameRate0, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176RGB24%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid176RGB24%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid176RGB24%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid176RGB24%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176RGB24%\FrameRate1, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176RGB24%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid176RGB24%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid176RGB24%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid176RGB24%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176RGB24%\FrameRate2, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176RGB24%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid176RGB24%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid176RGB24%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid176RGB24%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176RGB24%\FrameRate3, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176RGB24%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid176RGB24%\FrameRate3, QualityLevel, 0x10001, 1;
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid176RGB24%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid176RGB24%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176RGB24%\FrameRate4, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176RGB24%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid176RGB24%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid176RGB24%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid176RGB24%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176RGB24%\FrameRate5, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176RGB24%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid176RGB24%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;I420 176 x 144
+HKR, %7648519Vid176I420%, Tag, 0x10001, 0x17614412
+HKR, %7648519Vid176I420%, UsbSetting, 1, 10,0a,ff, 11,0f,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,19,ff, 20,0d,ff, 25,03,ff, 26,00,ff
+HKR, %7648519Vid176I420%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid176I420%, Width, 0x10001, 176
+HKR, %7648519Vid176I420%, Height, 0x10001, 144
+HKR, %7648519Vid176I420%, BitCount, 0x10001, 12
+HKR, %7648519Vid176I420%, FourCC, 0x10001, 0x30323449
+HKR, %7648519Vid176I420%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid176I420%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid176I420%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid176I420%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid176I420%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176I420%\FrameRate0, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176I420%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid176I420%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid176I420%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid176I420%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176I420%\FrameRate1, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176I420%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid176I420%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid176I420%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid176I420%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176I420%\FrameRate2, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176I420%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid176I420%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid176I420%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid176I420%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176I420%\FrameRate3, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176I420%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid176I420%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid176I420%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid176I420%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176I420%\FrameRate4, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176I420%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid176I420%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid176I420%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid176I420%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid176I420%\FrameRate5, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid176I420%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid176I420%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;RGB24 160 x 120
+HKR, %7648519Vid160RGB24%, Tag, 0x10001, 0x16012024
+HKR, %7648519Vid160RGB24%, UsbSetting, 1, 10,0a,ff, 11,0f,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,19,ff, 20,0d,ff, 25,03,ff, 26,00,ff
+HKR, %7648519Vid160RGB24%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid160RGB24%, Width, 0x10001, 160
+HKR, %7648519Vid160RGB24%, Height, 0x10001, 120
+HKR, %7648519Vid160RGB24%, BitCount, 0x10001, 24
+HKR, %7648519Vid160RGB24%, FourCC, 0x10001, 0
+HKR, %7648519Vid160RGB24%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid160RGB24%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid160RGB24%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid160RGB24%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid160RGB24%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160RGB24%\FrameRate0, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160RGB24%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid160RGB24%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid160RGB24%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid160RGB24%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160RGB24%\FrameRate1, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160RGB24%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid160RGB24%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid160RGB24%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid160RGB24%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160RGB24%\FrameRate2, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160RGB24%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid160RGB24%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid160RGB24%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid160RGB24%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160RGB24%\FrameRate3, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160RGB24%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid160RGB24%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid160RGB24%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid160RGB24%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160RGB24%\FrameRate4, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160RGB24%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid160RGB24%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid160RGB24%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid160RGB24%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160RGB24%\FrameRate5, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160RGB24%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid160RGB24%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;I420 160 x 120
+HKR, %7648519Vid160I420%, Tag, 0x10001, 0x16012012
+HKR, %7648519Vid160I420%, UsbSetting, 1, 10,0a,ff, 11,0f,ff, 12,00,ff, 13,00,ff, 14,00,ff, 15,00,ff, 16,19,ff, 20,0d,ff, 25,03,ff, 26,00,ff
+HKR, %7648519Vid160I420%, CameraSetting, 1, 14,24,ff, 26,a2,ff, 17,1c,ff, 18,bc,ff
+HKR, %7648519Vid160I420%, Width, 0x10001, 160
+HKR, %7648519Vid160I420%, Height, 0x10001, 120
+HKR, %7648519Vid160I420%, BitCount, 0x10001, 12
+HKR, %7648519Vid160I420%, FourCC, 0x10001, 0x30323449
+HKR, %7648519Vid160I420%, MaxFrameRate, 0x10001, 30000
+HKR, %7648519Vid160I420%, typFrameRate, 0x10001, 30000
+HKR, %7648519Vid160I420%, MinFrameRate, 0x10001, 5000
+
+;************* Frame Rate = 30fps (Normal)
+HKR, %7648519Vid160I420%\FrameRate0, UsbSetting, 1, a4,04,ff, 23,ff,ff
+HKR, %7648519Vid160I420%\FrameRate0, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160I420%\FrameRate0, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160I420%\FrameRate0, FrameRate, 0x10001, 30000
+HKR, %7648519Vid160I420%\FrameRate0, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 25fps (Frame Drop)
+HKR, %7648519Vid160I420%\FrameRate1, UsbSetting, 1, a4,04,ff, 23,1f,ff
+HKR, %7648519Vid160I420%\FrameRate1, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160I420%\FrameRate1, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160I420%\FrameRate1, FrameRate, 0x10001, 25000
+HKR, %7648519Vid160I420%\FrameRate1, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 20fps (Frame Drop)
+HKR, %7648519Vid160I420%\FrameRate2, UsbSetting, 1, a4,04,ff, 23,1b,ff
+HKR, %7648519Vid160I420%\FrameRate2, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160I420%\FrameRate2, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160I420%\FrameRate2, FrameRate, 0x10001, 20000
+HKR, %7648519Vid160I420%\FrameRate2, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 15fps (Change Clock Divider)
+HKR, %7648519Vid160I420%\FrameRate3, UsbSetting, 1, a4,04,ff, 23,15,ff
+HKR, %7648519Vid160I420%\FrameRate3, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160I420%\FrameRate3, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160I420%\FrameRate3, FrameRate, 0x10001, 15000
+HKR, %7648519Vid160I420%\FrameRate3, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 10fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid160I420%\FrameRate4, UsbSetting, 1, a4,04,ff, 23,09,ff
+HKR, %7648519Vid160I420%\FrameRate4, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160I420%\FrameRate4, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160I420%\FrameRate4, FrameRate, 0x10001, 10000
+HKR, %7648519Vid160I420%\FrameRate4, QualityLevel, 0x10001, 1
+
+;************* Frame Rate = 5fps (Change Clock Divider and Frame Drop)
+HKR, %7648519Vid160I420%\FrameRate5, UsbSetting, 1, a4,04,ff, 23,01,ff
+HKR, %7648519Vid160I420%\FrameRate5, CameraSetting, 1, 11,00,ff
+HKR, %7648519Vid160I420%\FrameRate5, AlternateSetting, 0x10001, 1
+HKR, %7648519Vid160I420%\FrameRate5, FrameRate, 0x10001, 5000
+HKR, %7648519Vid160I420%\FrameRate5, QualityLevel, 0x10001, 1
+
+;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+;****************************************************************************************************
+;[OVT.7648.Properties]
+;Standard properties
+;PROPSETID_VIDCAP_VIDEOPROCAMP
+;    KSPROPERTY_VIDEOPROCAMP_BRIGHTNESS,            // RW O		0
+;    KSPROPERTY_VIDEOPROCAMP_CONTRAST,              // RW O		1
+;    KSPROPERTY_VIDEOPROCAMP_HUE,                   // RW O		2
+;    KSPROPERTY_VIDEOPROCAMP_SATURATION,            // RW O		3
+;    KSPROPERTY_VIDEOPROCAMP_SHARPNESS,             // RW O		4
+;    KSPROPERTY_VIDEOPROCAMP_GAMMA,                 // RW O		5
+;    KSPROPERTY_VIDEOPROCAMP_COLORENABLE,           // RW O		6
+;    KSPROPERTY_VIDEOPROCAMP_WHITEBALANCE,          // RW O		7
+;    KSPROPERTY_VIDEOPROCAMP_BACKLIGHT_COMPENSATION,// RW O		8
+HKR,%7648519Brit%,PropertyId,0x10001, 0
+HKR,%7648519Brit%,MapMethod,0x10001, 0
+HKR,%7648519Brit%,RelatedRegister,1,6
+
+HKR,%7648519Brit%,RelateUsbRegister,1,0
+
+HKR,%7648519Brit%,SupportAuto,0x10001,0
+HKR,%7648519Brit%,AutoControlMode,0x10001,0
+HKR,%7648519Brit%,CamRegDisableAuto,1,2d, 05, 10
+HKR,%7648519Brit%,CamRegEnableAuto,1,2d, 15, 10
+
+HKR,%7648519Brit%,DefaultValue,0x10001, 0x60
+
+HKR,%7648519Brit%,DefaultFlags,0x10001, 1
+HKR,%7648519Brit%,MinValue,0x10001, 0
+HKR,%7648519Brit%,MaxValue,0x10001, 255
+HKR,%7648519Brit%,Step,0x10001, 1
+;#####################################
+
+;HKR,%7648519Cntr%,PropertyId,0x10001, 1
+;HKR,%7648519Cntr%,MapMethod,0x10001,1
+;HKR,%7648519Cntr%,NumberOfValues,0x10001, 16
+;HKR,%7648519Cntr%\0000,Value,0x10001, 0
+;HKR,%7648519Cntr%\0000,CamRegisters,1, 64,2,fe
+;HKR,%7648519Cntr%\0001,Value,0x10001, 1
+;HKR,%7648519Cntr%\0001,CamRegisters,1, 64,5,fe
+;HKR,%7648519Cntr%\0002,Value,0x10001, 2
+;HKR,%7648519Cntr%\0002,CamRegisters,1, 64,9,fe
+;HKR,%7648519Cntr%\0003,Value,0x10001, 3
+;HKR,%7648519Cntr%\0003,CamRegisters,1, 64,11,fe
+;HKR,%7648519Cntr%\0004,Value,0x10001, 4
+;HKR,%7648519Cntr%\0004,CamRegisters,1, 64,15,fe
+;HKR,%7648519Cntr%\0005,Value,0x10001, 5
+;HKR,%7648519Cntr%\0005,CamRegisters,1, 64,35,fe
+;HKR,%7648519Cntr%\0006,Value,0x10001, 6
+;HKR,%7648519Cntr%\0006,CamRegisters,1, 64,37,fe
+;HKR,%7648519Cntr%\0007,Value,0x10001, 7
+;HKR,%7648519Cntr%\0007,CamRegisters,1, 64,57,fe
+;HKR,%7648519Cntr%\0008,Value,0x10001, 8
+;HKR,%7648519Cntr%\0008,CamRegisters,1, 64,5b,fe
+;HKR,%7648519Cntr%\0009,Value,0x10001, 9
+;HKR,%7648519Cntr%\0009,CamRegisters,1, 64,a5,fe
+;HKR,%7648519Cntr%\000a,Value,0x10001, 10
+;HKR,%7648519Cntr%\000a,CamRegisters,1, 64,a7,fe
+;HKR,%7648519Cntr%\000b,Value,0x10001, 11
+;HKR,%7648519Cntr%\000b,CamRegisters,1, 64,c7,fe
+;HKR,%7648519Cntr%\000c,Value,0x10001, 12
+;HKR,%7648519Cntr%\000c,CamRegisters,1, 64,c9,fe
+;HKR,%7648519Cntr%\000d,Value,0x10001, 13
+;HKR,%7648519Cntr%\000d,CamRegisters,1, 64,cf,fe
+;HKR,%7648519Cntr%\000e,Value,0x10001, 14
+;HKR,%7648519Cntr%\000e,CamRegisters,1, 64,ef,fe
+;HKR,%7648519Cntr%\000f,Value,0x10001, 15
+;HKR,%7648519Cntr%\000f,CamRegisters,1, 64,ff,fe
+
+
+;HKR,%7648519Cntr%,DefaultValue,0x10001, 7
+;HKR,%7648519Cntr%,MinValue,0x10001, 0
+;HKR,%7648519Cntr%,MaxValue,0x10001, 15
+;HKR,%7648519Cntr%,Step,0x10001, 1
+
+;#####################################
+HKR,%7648519Hue%,PropertyId,0x10001, 2
+HKR,%7648519Hue%,MapMethod,0x10001,1
+HKR,%7648519Hue%,NumberOfValues,0x10001, 16
+HKR,%7648519Hue%\0000,Value,0x10001, 0
+HKR,%7648519Hue%\0000,CamRegisters,1, 04,20,ff
+HKR,%7648519Hue%\0001,Value,0x10001, 1
+HKR,%7648519Hue%\0001,CamRegisters,1, 04,22,ff
+HKR,%7648519Hue%\0002,Value,0x10001, 2
+HKR,%7648519Hue%\0002,CamRegisters,1, 04,24,ff
+HKR,%7648519Hue%\0003,Value,0x10001, 3
+HKR,%7648519Hue%\0003,CamRegisters,1, 04,26,ff
+HKR,%7648519Hue%\0004,Value,0x10001, 4
+HKR,%7648519Hue%\0004,CamRegisters,1, 04,28,ff
+HKR,%7648519Hue%\0005,Value,0x10001, 5
+HKR,%7648519Hue%\0005,CamRegisters,1, 04,2a,ff
+HKR,%7648519Hue%\0006,Value,0x10001, 6
+HKR,%7648519Hue%\0006,CamRegisters,1, 04,2c,ff
+HKR,%7648519Hue%\0007,Value,0x10001, 7
+HKR,%7648519Hue%\0007,CamRegisters,1, 04,2e,ff
+HKR,%7648519Hue%\0008,Value,0x10001, 8
+HKR,%7648519Hue%\0008,CamRegisters,1, 04,30,ff
+HKR,%7648519Hue%\0009,Value,0x10001, 9
+HKR,%7648519Hue%\0009,CamRegisters,1, 04,32,ff
+HKR,%7648519Hue%\000a,Value,0x10001, 10
+HKR,%7648519Hue%\000a,CamRegisters,1, 04,34,ff
+HKR,%7648519Hue%\000b,Value,0x10001, 11
+HKR,%7648519Hue%\000b,CamRegisters,1, 04,36,ff
+HKR,%7648519Hue%\000c,Value,0x10001, 12
+HKR,%7648519Hue%\000c,CamRegisters,1, 04,38,ff
+HKR,%7648519Hue%\000d,Value,0x10001, 13
+HKR,%7648519Hue%\000d,CamRegisters,1, 04,3a,ff
+HKR,%7648519Hue%\000e,Value,0x10001, 14
+HKR,%7648519Hue%\000e,CamRegisters,1, 04,3c,ff
+HKR,%7648519Hue%\000f,Value,0x10001, 15
+HKR,%7648519Hue%\000f,CamRegisters,1, 04,3e,ff
+
+HKR,%7648519Hue%,DefaultValue,0x10001, 8
+HKR,%7648519Hue%,MinValue,0x10001, 0
+HKR,%7648519Hue%,MaxValue,0x10001, 15
+HKR,%7648519Hue%,Step,0x10001, 1
+
+;#####################################
+HKR,%7648519Sat%,PropertyId,0x10001, 3
+HKR,%7648519Sat%,MapMethod,0x10001,1
+HKR,%7648519Sat%,NumberOfValues,0x10001, 16
+HKR,%7648519Sat%\0000,Value,0x10001, 0
+HKR,%7648519Sat%\0000,CamRegisters,1, 03,00,ff
+HKR,%7648519Sat%\0001,Value,0x10001, 1
+HKR,%7648519Sat%\0001,CamRegisters,1, 03,10,ff
+HKR,%7648519Sat%\0002,Value,0x10001, 2
+HKR,%7648519Sat%\0002,CamRegisters,1, 03,20,ff
+HKR,%7648519Sat%\0003,Value,0x10001, 3
+HKR,%7648519Sat%\0003,CamRegisters,1, 03,30,ff
+HKR,%7648519Sat%\0004,Value,0x10001, 4
+HKR,%7648519Sat%\0004,CamRegisters,1, 03,40,ff
+HKR,%7648519Sat%\0005,Value,0x10001, 5
+HKR,%7648519Sat%\0005,CamRegisters,1, 03,50,ff
+HKR,%7648519Sat%\0006,Value,0x10001, 6
+HKR,%7648519Sat%\0006,CamRegisters,1, 03,60,ff
+HKR,%7648519Sat%\0007,Value,0x10001, 7
+HKR,%7648519Sat%\0007,CamRegisters,1, 03,70,ff
+HKR,%7648519Sat%\0008,Value,0x10001, 8
+HKR,%7648519Sat%\0008,CamRegisters,1, 03,80,ff
+HKR,%7648519Sat%\0009,Value,0x10001, 9
+HKR,%7648519Sat%\0009,CamRegisters,1, 03,90,ff
+HKR,%7648519Sat%\000a,Value,0x10001, 10
+HKR,%7648519Sat%\000a,CamRegisters,1, 03,a0,ff
+HKR,%7648519Sat%\000b,Value,0x10001, 11
+HKR,%7648519Sat%\000b,CamRegisters,1, 03,b0,ff
+HKR,%7648519Sat%\000c,Value,0x10001, 12
+HKR,%7648519Sat%\000c,CamRegisters,1, 03,c0,ff
+HKR,%7648519Sat%\000d,Value,0x10001, 13
+HKR,%7648519Sat%\000d,CamRegisters,1, 03,d0,ff
+HKR,%7648519Sat%\000e,Value,0x10001, 14
+HKR,%7648519Sat%\000e,CamRegisters,1, 03,e0,ff
+HKR,%7648519Sat%\000f,Value,0x10001, 15
+HKR,%7648519Sat%\000f,CamRegisters,1, 03,f0,ff
+
+HKR,%7648519Sat%,DefaultValue,0x10001, 8
+HKR,%7648519Sat%,MinValue,0x10001, 0
+HKR,%7648519Sat%,MaxValue,0x10001, 15
+HKR,%7648519Sat%,Step,0x10001, 1
+;#####################################
+
+HKR,%7648519Shp%,PropertyId,0x10001, 4
+HKR,%7648519Shp%,MapMethod,0x10001, 1
+HKR,%7648519Shp%,NumberOfValues,0x10001, 8
+
+HKR,%7648519Shp%\0000,Value,0x10001, 0
+HKR,%7648519Shp%\0000,CamRegisters,1, 26,c2,f0
+HKR,%7648519Shp%\0001,Value,0x10001, 1
+HKR,%7648519Shp%\0001,CamRegisters,1, 26,d2,f0
+HKR,%7648519Shp%\0002,Value,0x10001, 2
+HKR,%7648519Shp%\0002,CamRegisters,1, 26,92,f0
+HKR,%7648519Shp%\0003,Value,0x10001, 3
+HKR,%7648519Shp%\0003,CamRegisters,1, 26,a2,f0
+HKR,%7648519Shp%\0004,Value,0x10001, 4
+HKR,%7648519Shp%\0004,CamRegisters,1, 26,b2,f0
+HKR,%7648519Shp%\0005,Value,0x10001, 5
+HKR,%7648519Shp%\0005,CamRegisters,1, 26,62,f0
+HKR,%7648519Shp%\0006,Value,0x10001, 6
+HKR,%7648519Shp%\0006,CamRegisters,1, 26,72,f0
+HKR,%7648519Shp%\0007,Value,0x10001, 7
+HKR,%7648519Shp%\0007,CamRegisters,1, 26,32,f0
+
+HKR,%7648519Shp%,DefaultValue,0x10001, 6
+HKR,%7648519Shp%,MinValue,0x10001, 0
+HKR,%7648519Shp%,MaxValue,0x10001, 7
+HKR,%7648519Shp%,Step,0x10001, 1
+
+;#####################################
+;HKR,%7648519Gam%\0000,UsbRegisters,1, 0f, 14, ff
+;#####################################
+;HKR,%7648519Gam%,PropertyId,0x10001, 5
+;HKR,%7648519Gam%,MapMethod,0x10001, 1
+;HKR,%7648519Gam%,NumberOfValues,0x10001, 2
+;HKR,%7648519Gam%\0000,Value,0x10001, 0
+;HKR,%7648519Gam%\0000,CamRegisters,1, 64,00,01
+;HKR,%7648519Gam%\0001,Value,0x10001, 1
+;HKR,%7648519Gam%\0001,CamRegisters,1, 64,01,01
+;HKR,%7648519Gam%,DefaultValue,0x10001, 1
+;HKR,%7648519Gam%,MinValue,0x10001, 0
+;HKR,%7648519Gam%,MaxValue,0x10001, 1
+;HKR,%7648519Gam%,Step,0x10001, 1
+
+HKR,%7648519Col%,PropertyId,0x10001, 6
+HKR,%7648519Col%,MapMethod,0x10001, 1
+HKR,%7648519Col%,NumberOfValues,0x10001, 2
+HKR,%7648519Col%\0000,Value,0x10001, 0
+HKR,%7648519Col%\0000,UsbRegisters,1, a3,00,ff
+HKR,%7648519Col%\0001,Value,0x10001, 1
+HKR,%7648519Col%\0001,UsbRegisters,1, a3,20,ff
+
+HKR,%7648519Col%,DefaultValue,0x10001, 1
+HKR,%7648519Col%,MinValue,0x10001, 0
+HKR,%7648519Col%,MaxValue,0x10001, 1
+HKR,%7648519Col%,Step,0x10001, 1
+;#####################################
+
+;HKR,%7648519Wb%,Registers,0x10001, 
+;#####################################
+;HKR,%7648519Wb%,PropertyId,0x10001, 7
+;HKR,%7648519Wb%,MapMethod,0x10001, 1
+;HKR,%7648519Wb%,NumberOfValues,0x10001, 3
+;;HKR,%7648519Wb%,RelatedRegister,1, 43
+;; Indoor Tungsten (2850K)
+;HKR,%7648519Wb%\0000,Value,0x10001, 0
+;HKR,%7648519Wb%\0000,CamRegisters,1,6c,0c,ff,6d,0c,ff,6e,c0,ff,75,04,04,12,00,04,12,04,04
+;; Indoor Flouence (4500K)
+;HKR,%7648519Wb%\0001,Value,0x10001, 1
+;HKR,%7648519Wb%\0001,CamRegisters,1,6c,02,ff,6d,44,ff,6e,40,ff,75,00,04,12,00,04,12,04,04
+;; Outdoor (> 5000K)
+;HKR,%7648519Wb%\0002,Value,0x10001, 2
+;HKR,%7648519Wb%\0002,CamRegisters,1,6c,00,ff,6d,5f,ff,6e,80,ff,75,04,04,12,00,04,12,04,04
+;
+;HKR,%7648519Wb%,SupportAuto,0x10001,1
+;HKR,%7648519Wb%,AutoControlMode,0x10001,0
+;HKR,%7648519Wb%,CamRegDisableAuto,1,12, 20, 04
+;HKR,%7648519Wb%,CamRegEnableAuto,1,12, 24, 04
+;
+;HKR,%7648519Wb%,DefaultValue,0x10001, 1
+;HKR,%7648519Wb%,DefaultFlags,0x10001, 1
+;HKR,%7648519Wb%,MinValue,0x10001, 0
+;HKR,%7648519Wb%,MaxValue,0x10001, 2
+;HKR,%7648519Wb%,Step,0x10001, 1
+
+;HKR,%7648519BL%,PropertyId,0x10001, 8
+;HKR,%7648519BL%,MapMethod,0x10001, 1
+;HKR,%7648519BL%,NumberOfValues,0x10001, 2
+;HKR,%7648519BL%\0000,Value,0x10001, 0
+;HKR,%7648519BL%\0000,CamRegisters,1, 68,A0,e0, 29,00,08,28,00,02
+;HKR,%7648519BL%\0001,Value,0x10001, 1
+;HKR,%7648519BL%\0001,CamRegisters,1, 68,c0,e0, 29,08,08, 28,02,02
+;
+;HKR,%7648519BL%,DefaultValue,0x10001, 0
+;HKR,%7648519BL%,MinValue,0x10001, 0
+;HKR,%7648519BL%,MaxValue,0x10001, 1
+;HKR,%7648519BL%,Step,0x10001, 1
+
+;#####################################
+;#####################################
+;PROPSETID_VIDCAP_CAMERACONTROL
+;    KSPROPERTY_CAMERACONTROL_PAN,                       // RW O 0
+;    KSPROPERTY_CAMERACONTROL_TILT,                      // RW O 1
+;    KSPROPERTY_CAMERACONTROL_ROLL,                      // RW O 2
+;    KSPROPERTY_CAMERACONTROL_ZOOM,                      // RW O 3
+;    KSPROPERTY_CAMERACONTROL_EXPOSURE,                  // RW O 4
+;    KSPROPERTY_CAMERACONTROL_IRIS,                      // RW O 5
+;    KSPROPERTY_CAMERACONTROL_FOCUS,                     // RW O 6
+
+;HKR,%7648519Pan%,Registers,0x10001, 
+;HKR,%7648519Tilt%,Registers,0x10001, 
+;HKR,%7648519Roll%,Registers,0x10001, 
+;HKR,%7648519Zoom%,Registers,0x10001, 
+;#####################################
+
+HKR,%7648519Exp%,PropertyId,0x10001, 4
+HKR,%7648519Exp%,MapMethod,0x10001, 0
+HKR,%7648519Exp%,RelatedRegister,1,10
+
+HKR,%7648519Exp%,SupportAuto,0x10001,1 ;0 not support, 1 support
+HKR,%7648519Exp%,AutoControlMode,0x10001,0
+HKR,%7648519Exp%,CamRegDisableAuto,1,13, a0, 03
+HKR,%7648519Exp%,CamRegEnableAuto,1,13, a3, 03
+
+HKR,%7648519Exp%,DefaultValue,0x10001, 130
+HKR,%7648519Exp%,DefaultFlags,0x10001, 1
+HKR,%7648519Exp%,MinValue,0x10001, 0
+HKR,%7648519Exp%,MaxValue,0x10001, 130
+HKR,%7648519Exp%,Step,0x10001, 1
+
+;#####################################
+;HKR,%7648519Iris%,Registers,0x10001, 
+;HKR,%7648519Focus%,Registers,0x10001, 
+;#####################################
+;PROPSETID_VIDCAP_VIDEOCONTROL
+;    KSPROPERTY_VIDEOCONTROL_CAPS,               // R		0
+;    KSPROPERTY_VIDEOCONTROL_ACTUAL_FRAME_RATE,  // R O		1
+;    KSPROPERTY_VIDEOCONTROL_FRAME_RATES,        // R O		2
+;    KSPROPERTY_VIDEOCONTROL_MODE,               // RWO		3
+
+HKR,%7648519Cap%,PropertyId,0x10001, 0
+HKR,%7648519Cap%,MapMethod,0x10001, 1
+
+;    KS_VideoControlFlag_FlipHorizontal        = 0x0001,
+;    KS_VideoControlFlag_FlipVertical          = 0x0002,
+;    KS_VideoControlFlag_ExternalTriggerEnable = 0x0010,
+;    KS_VideoControlFlag_Trigger               = 0x0020,
+HKR,%7648519Cap%,DefaultValue,0x10001, 0x33
+
+;######################################
+HKR,%7648519ActFR%,PropertyId,0x10001, 1
+HKR,%7648519ActFR%,MapMethod,0x10001, 1
+HKR,%7648519ActFR%,DefaultValue,0x10001, 0
+
+;######################################
+HKR,%7648519Fps%,PropertyId,0x10001, 2
+HKR,%7648519Fps%,MapMethod,0x10001, 1
+HKR,%7648519Fps%,DefaultValue,0x10001, 0
+
+;######################################
+HKR,%7648519Mode%,PropertyId,0x10001, 3
+HKR,%7648519Mode%,MapMethod,0x10001, 1
+HKR,%7648519Mode%,NumberOfValues,0x10001, 3
+HKR,%7648519Mode%,DefaultValue,0x10001, 20
+
+HKR,%7648519Mode%\0000,Value,0x10001, 1
+HKR,%7648519Mode%\0000,CamRegisters,1, 12,40,40
+HKR,%7648519Mode%\0001,Value,0x10001, 0x80000001
+HKR,%7648519Mode%\0001,CamRegisters,1, 12,0,40
+HKR,%7648519Mode%\0002,Value,0x10001, 0x20
+HKR,%7648519Mode%\0002,UsbRegisters,1, 57,05,05
+
+;######################################
+;######################################
+;PROPSETID_VIDCAP_VIDEOCOMPRESSION
+;PROPSETID_VIDCAP_VIDEOCOMPRESSION
+;    KSPROPERTY_VIDEOCOMPRESSION_GETINFO,              // R		0
+;    KSPROPERTY_VIDEOCOMPRESSION_KEYFRAME_RATE,        // RW	1
+;Right now we only support upper two properties
+;    KSPROPERTY_VIDEOCOMPRESSION_PFRAMES_PER_KEYFRAME, // RW	2
+;    KSPROPERTY_VIDEORESSION_QUALITY,              // RW    3
+;    KSPROPERTY_VIDEOCOMPRESSION_OVERRIDE_KEYFRAME,    // W		4
+;    KSPROPERTY_VIDEOCOMPRESSION_OVERRIDE_FRAME_SIZE   // W		5
+
+;######################################
+HKR,%7648519CmpInfo%,PropertyId,0x10001, 0
+HKR,%7648519CmpInfo%,MapMethod,0x10001, 1
+
+;    KS_CompressionCaps_CanQuality = 1,
+;    KS_CompressionCaps_CanCrunch = 2,
+;    KS_CompressionCaps_CanKeyFrame = 4,
+;    KS_CompressionCaps_CanBFrame = 8
+HKR,%7648519CmpInfo%,DefaultValue,0x10001, 1
+
+;######################################
+
+HKR,%7648519KeyFR%,PropertyId,0x10001, 1
+HKR,%7648519KeyFR%,MapMethod,0x10001, 1
+HKR,%7648519KeyFR%,DefaultValue,0x10001, 7
+
+;######################################
+HKR,%7648519PFR%,PropertyId,0x10001, 2
+HKR,%7648519PFR%,MapMethod,0x10001, 1
+HKR,%7648519PFR%,DefaultValue,0x10001, 0
+;######################################
+HKR,%7648519Qul%,PropertyId,0x10001, 3
+HKR,%7648519Qul%,MapMethod,0x10001, 1
+HKR,%7648519Qul%,DefaultValue,0x10001, 5000
+;######################################
+HKR,%7648519RedGain%,PropertyId,0x10001, 6
+HKR,%7648519RedGain%,MapMethod,0x10001, 0
+HKR,%7648519RedGain%,RelatedRegister,1,02
+HKR,%7648519RedGain%,DefaultValue,0x10001, 128
+HKR,%7648519RedGain%,MinValue,0x10001, 0
+HKR,%7648519RedGain%,MaxValue,0x10001, 255
+HKR,%7648519RedGain%,Step,0x10001, 1
+;######################################
+HKR,%7648519BlueGain%,PropertyId,0x10001, 7
+HKR,%7648519BlueGain%,MapMethod,0x10001, 0
+HKR,%7648519BlueGain%,RelatedRegister,1,01
+HKR,%7648519BlueGain%,DefaultValue,0x10001, 128
+HKR,%7648519BlueGain%,MinValue,0x10001, 0
+HKR,%7648519BlueGain%,MaxValue,0x10001, 255
+HKR,%7648519BlueGain%,Step,0x10001, 1
+;######################################
+HKR,%7648519Gain%,PropertyId,0x10001, 8
+HKR,%7648519Gain%,MapMethod,0x10001, 1
+HKR,%7648519Gain%,RelatedRegister,1, 0
+HKR,%7648519Gain%,NumberOfValues,0x10001, 8
+HKR,%7648519Gain%\0000,Value,0x10001, 0
+HKR,%7648519Gain%\0000,CamRegisters,1,00,00,ff
+HKR,%7648519Gain%\0001,Value,0x10001, 1
+HKR,%7648519Gain%\0001,CamRegisters,1,00,04,ff
+HKR,%7648519Gain%\0002,Value,0x10001, 2
+HKR,%7648519Gain%\0002,CamRegisters,1,00,08,ff
+HKR,%7648519Gain%\0003,Value,0x10001, 3
+HKR,%7648519Gain%\0003,CamRegisters,1,00,0a,ff
+HKR,%7648519Gain%\0004,Value,0x10001, 4
+HKR,%7648519Gain%\0004,CamRegisters,1,00,0f,ff
+HKR,%7648519Gain%\0005,Value,0x10001, 5
+HKR,%7648519Gain%\0005,CamRegisters,1,00,14,ff
+HKR,%7648519Gain%\0006,Value,0x10001, 6
+HKR,%7648519Gain%\0006,CamRegisters,1,00,18,ff
+HKR,%7648519Gain%\0007,Value,0x10001, 7
+HKR,%7648519Gain%\0007,CamRegisters,1,00,1f,ff
+
+HKR,%7648519Gain%,DefaultValue,0x10001, 0
+HKR,%7648519Gain%,MinValue,0x10001, 0
+HKR,%7648519Gain%,MaxValue,0x10001, 7
+HKR,%7648519Gain%,Step,0x10001, 1
+;######################################
+;PROPSETID_OVTCAM_PROP
+HKR,%7648519Reg%,PropertyId,0x10001, 0
+HKR,%7648519Reg%,MapMethod,0x10001, 1
+HKR,%7648519Reg%,DefaultValue,0x10001, 0
+
+HKR,%7648519Regy%,PropertyId,0x10001, 3
+HKR,%7648519Regy%,MapMethod,0x10001, 1
+HKR,%7648519Regy%,DefaultValue,0x10001, 0
+
+HKR,%7648519Sti%,PropertyId,0x10001, 1
+HKR,%7648519Sti%,MapMethod,0x10001, 1
+HKR,%7648519Sti%,DefaultValue,0x10001, 0
+
+HKR,%7648519LF%,PropertyId,0x10001, 2
+HKR,%7648519LF%,MapMethod,0x10001, 1
+HKR,%7648519LF%,NumberOfValues,0x10001, 2
+
+HKR,%7648519LF%\50Hz,Value,0x10001, 0
+HKR,%7648519LF%\50Hz,CamRegisters,1, 2b,98,ff
+HKR,%7648519LF%\60Hz,Value,0x10001, 1
+HKR,%7648519LF%\60Hz,CamRegisters,1, 2b,00,ff
+
+HKR,%7648519LF%,DefaultValue,0x10001, 1
+HKR,%7648519LF%,MinValue,0x10001, 0
+HKR,%7648519LF%,MaxValue,0x10001, 1
+HKR,%7648519LF%,Step,0x10001, 1
+
+HKR,%7648519LF%\FormatChange\640,MinValue,0x10001, 0
+HKR,%7648519LF%\FormatChange\640,MaxValue,0x10001, 1
+HKR,%7648519LF%\FormatChange\640,Set2LastValue,0x10001, 1
+HKR,%7648519LF%\FormatChange\640,Width,0x10001, 640
+HKR,%7648519LF%\FormatChange\640,NumberOfValues,0x10001, 2
+HKR,%7648519LF%\FormatChange\640\50Hz,Value,0x10001, 0
+HKR,%7648519LF%\FormatChange\640\50Hz,CamRegisters,1, 2b,98,ff
+HKR,%7648519LF%\FormatChange\640\60Hz,Value,0x10001, 1
+HKR,%7648519LF%\FormatChange\640\60Hz,CamRegisters,1, 2b,00,ff
+;HKR,%7648519LF%\FormatChange\640\50Hz,Value,0x10001, 0
+;HKR,%7648519LF%\FormatChange\640\50Hz,CamRegisters,1, 2b,98,ff
+;HKR,%7648519LF%\FormatChange\640\60Hz,Value,0x10001, 1
+;HKR,%7648519LF%\FormatChange\640\60Hz,CamRegisters,1, 2b,00,ff
+
+
+[Strings]
+
+;;7648519
+7648519Set="CameraSetting\SupportCamera\7648519"
+7648519Adj="CameraSetting\SupportCamera\7648519\CamAdjust"
+7648519STIYUV="CameraSetting\SupportCamera\7648519\DataProcessing\YUV"
+7648519UVTest="CameraSetting\SupportCamera\7648519\DataProcessing\UVTest"
+7648519DP="CameraSetting\SupportCamera\7648519\DataProcessing"
+7648519STIRAW="CameraSetting\SupportCamera\7648519\DataProcessing\RAW"
+7648519Strm="CameraSetting\SupportCamera\7648519\VideoStream"
+7648519Vid160I420="CameraSetting\SupportCamera\7648519\VideoStream\160x120I420"
+7648519Vid176I420="CameraSetting\SupportCamera\7648519\VideoStream\176x144I420"
+7648519Vid320I420="CameraSetting\SupportCamera\7648519\VideoStream\320x240I420"
+7648519Vid352I420="CameraSetting\SupportCamera\7648519\VideoStream\352x288I420"
+7648519Vid640I420="CameraSetting\SupportCamera\7648519\VideoStream\640x480I420"
+7648519Vid160RGB24="CameraSetting\SupportCamera\7648519\VideoStream\160x120RGB24"
+7648519Vid176RGB24="CameraSetting\SupportCamera\7648519\VideoStream\176x144RGB24"
+7648519Vid320RGB24="CameraSetting\SupportCamera\7648519\VideoStream\320x240RGB24"
+7648519Vid352RGB24="CameraSetting\SupportCamera\7648519\VideoStream\352x288RGB24"
+7648519Vid640RGB24="CameraSetting\SupportCamera\7648519\VideoStream\640x480RGB24"
+7648519Brit="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\Brightness"
+7648519Cntr="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\Contrast"
+7648519Hue="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\Hue"
+7648519Sat="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\Saturation"
+7648519Shp="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\Sharpness"
+7648519Gam="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\Gamma"
+7648519Col="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\ColorEnable"
+7648519Wb="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\WhiteBalance"
+7648519BL="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoProcAmp\BackLight"
+7648519Pan="CameraSetting\SupportCamera\7648519\DeviceProperties\CameraControl\Pan"
+7648519Tilt="CameraSetting\SupportCamera\7648519\DeviceProperties\CameraControl\Tilt"
+7648519Roll="CameraSetting\SupportCamera\7648519\DeviceProperties\CameraControl\Roll"
+7648519Zoom="CameraSetting\SupportCamera\7648519\DeviceProperties\CameraControl\Zoom"
+7648519Exp="CameraSetting\SupportCamera\7648519\DeviceProperties\CameraControl\Exposure"
+7648519Iris="CameraSetting\SupportCamera\7648519\DeviceProperties\CameraControl\Iris"
+7648519Focus="CameraSetting\SupportCamera\7648519\DeviceProperties\CameraControl\Focus"
+7648519Cap="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoControl\Capability"
+7648519ActFR="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoControl\ActualFrameRate"
+7648519Fps="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoControl\FrameRates"
+7648519Mode="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoControl\Mode"
+7648519CmpInfo="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoCompression\GetCompressionInfo"
+7648519KeyFR="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoCompression\KeyFrameRate"
+7648519PFR="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoCompression\PFrameRate"
+7648519Qul="CameraSetting\SupportCamera\7648519\DeviceProperties\VideoCompression\Qulaity"
+7648519Reg="CameraSetting\SupportCamera\7648519\DeviceProperties\CustomProperty\Register"
+7648519Regy="CameraSetting\SupportCamera\7648519\DeviceProperties\CustomProperty\Registry"
+7648519Sti="CameraSetting\SupportCamera\7648519\DeviceProperties\CustomProperty\StillImage"
+7648519LF="CameraSetting\SupportCamera\7648519\DeviceProperties\CustomProperty\LightFrequence"
+7648519RedGain="CameraSetting\SupportCamera\7648519\DeviceProperties\CustomProperty\RedGain"
+7648519BlueGain="CameraSetting\SupportCamera\7648519\DeviceProperties\CustomProperty\BlueGain"
+7648519Gain="CameraSetting\SupportCamera\7648519\DeviceProperties\CustomProperty\Gain"
