@@ -30,6 +30,9 @@
     <ClCompile Include="font.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dbg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Media\Copy Assets Here.txt">
@@ -53,6 +56,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="font_atlas.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dbg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

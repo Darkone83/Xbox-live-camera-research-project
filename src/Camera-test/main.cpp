@@ -50,6 +50,7 @@
 #include <xtl.h>
 #include "xb_cam.h"
 #include "font.h"
+#include "dbg.h"
 #include "input.h"      /* ScreenChat unified controller module */
 
 /*---------------------------------------------------------------------------
@@ -63,6 +64,8 @@ extern "C" {
     void XCam_Shutdown(void);
     int  XCam_IsStreaming(void);
     int  XCam_DrawToSurface(IDirect3DTexture8* pTex);
+    typedef void (*CamLogFn)(const char* tag, const char* msg);
+    void XCam_SetLog(CamLogFn fn);
 #ifdef __cplusplus
 }
 #endif
@@ -468,7 +471,7 @@ static void BeginCameraTest(void)
 
     if (s_initResult == 0) {
         s_state = ST_PREVIEW;
-        OutputDebugStringA("cameratest: XCam_Init OK, entering preview\n");
+        Dbg_Log("HARNESS", "XCam_Init OK, entering preview");
     }
     else if ((s_initResult == -1 ||
         s_initResult == (int)XCAM_STATUS_NO_DEVICE) &&
@@ -479,13 +482,13 @@ static void BeginCameraTest(void)
            -1 is not misreported as "not found".) Fail gracefully with a
            friendly message rather than a raw NTSTATUS dump.                  */
         s_state = ST_NOTFOUND;
-        OutputDebugStringA("cameratest: camera not found\n");
+        Dbg_Log("HARNESS", "camera not found");
     }
     else {
         /* Camera was seen but a later bring-up stage failed (open / format /
            start). Show the technical result so the stage can be diagnosed.   */
         s_state = ST_RESULT;
-        OutputDebugStringA("cameratest: XCam_Init failed (post-detect)\n");
+        Dbg_Log("HARNESS", "XCam_Init failed (post-detect)");
     }
 }
 
@@ -493,7 +496,7 @@ static void StopCameraTest(void)
 {
     XCam_Shutdown();
     s_state = ST_IDLE;
-    OutputDebugStringA("cameratest: camera stopped\n");
+    Dbg_Log("HARNESS", "camera stopped");
 }
 
 /*===========================================================================
@@ -555,6 +558,11 @@ static void RenderFrame(void)
     default:          DrawRunning();  break;
     }
 
+    /* On-screen debug log overlay, lower-right, just above the footer bar
+       (the only readable debug channel on a modchipped retail box). */
+    if (s_state == ST_RESULT || s_state == ST_NOTFOUND || s_state == ST_RUNNING)
+        Dbg_DrawCorner(s_pDev, (float)(SCR_W - 16), (float)(SCR_H - 40), FONT_SIZE_SMALL);
+
     s_pDev->EndScene();
     s_pDev->Present(NULL, NULL, NULL, NULL);
 }
@@ -568,6 +576,9 @@ void __cdecl main(void)
     BOOL running = TRUE;
 
     InitInput();        /* registers device types + opens already-present pads */
+    Dbg_Init();                         /* on-screen + D:\xb_cam.txt logger    */
+    XCam_SetLog(Dbg_GetSink());         /* driver logs into the same sink      */
+    Dbg_Log("HARNESS", "boot: D3D + input + log up");
 
     if (!InitD3D()) {
         /* Nothing we can draw to; bail out. */
@@ -618,5 +629,6 @@ void __cdecl main(void)
     /* Clean up */
     if (XCam_IsStreaming())
         XCam_Shutdown();
+    Dbg_Shutdown();
     ShutdownD3D();
 }

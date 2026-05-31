@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dbg.cpp" />
     <ClCompile Include="font.cpp" />
     <ClCompile Include="input.cpp" />
     <ClCompile Include="main.cpp" />
@@ -20,6 +21,7 @@
     <Text Include="Media\Copy Assets Here.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="dbg.h" />
     <ClInclude Include="font.h" />
     <ClInclude Include="font_atlas.h" />
     <ClInclude Include="input.h" />

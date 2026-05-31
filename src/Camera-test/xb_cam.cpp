@@ -106,6 +106,16 @@ static CAM_DEVICE_STATE g_CamState[CAM_MAX_DEVICES];   // HW: 4 if you index by 
 static URB g_CamEnumUrb;
 
 // ---------------------------------------------------------------------------
+// Debug sink. The harness registers its on-screen/disk logger here via
+// XCam_SetLog(); if unset (standalone build) logging is a no-op. Keeps the
+// driver decoupled from the harness's D3D + dbg.cpp.
+// ---------------------------------------------------------------------------
+typedef void (*CamLogFn)(const char* tag, const char* msg);
+static CamLogFn g_Log = NULL;
+extern "C" void XCam_SetLog(CamLogFn fn) { g_Log = fn; }
+#define CAMLOG(msg)      do { if (g_Log) g_Log("XBCAM", (msg)); } while(0)
+
+// ---------------------------------------------------------------------------
 // Forward decls
 // ---------------------------------------------------------------------------
 static VOID CamIsoComplete(PUSBD_ISOCH_TRANSFER_STATUS Status, PVOID Context);  // iso frame callback
@@ -157,17 +167,20 @@ EXTERNUSB VOID CamAddDevice(IUsbDevice* Device)
     const USB_ENDPOINT_DESCRIPTOR* epd;
 
     DbgPrint("XBCAM: CamAddDevice\n");
+    CAMLOG("AddDevice: enter");
     ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);              // RXDK: verify
 
     // --- port sanity (usbsamp pattern) ---
     dwPort = Device->GetPort();
     if (dwPort >= CAM_MAX_DEVICES) {                            // HW: if indexing by port use XGetPortCount()
+        CAMLOG("AddDevice: bad port -> UNSUPPORTED");
         Device->AddComplete(USBD_STATUS_UNSUPPORTED_DEVICE);
         return;
     }
     st = &g_CamState[dwPort];
 
     if (st->DeviceAttached) {
+        CAMLOG("AddDevice: already attached -> UNSUPPORTED");
         Device->AddComplete(USBD_STATUS_UNSUPPORTED_DEVICE);
         return;
     }
@@ -178,20 +191,24 @@ EXTERNUSB VOID CamAddDevice(IUsbDevice* Device)
     // GET_DESCRIPTOR if you need VID/PID. We match by the vendor class.
     ifd = Device->GetInterfaceDescriptor();
     if (ifd == NULL || ifd->bInterfaceClass != CAM_INTERFACE_CLASS) {
+        CAMLOG("AddDevice: iface class mismatch -> UNSUPPORTED");
         Device->AddComplete(USBD_STATUS_UNSUPPORTED_DEVICE);
         return;
     }
     st->InterfaceNumber = ifd->bInterfaceNumber;
+    CAMLOG("AddDevice: iface class 0xFF matched");
 
     // --- find the iso IN endpoint (type, direction, index) ---
     // CORRECTED signature per the guide: (EndpointType, Direction, Index).
     epd = Device->GetEndpointDescriptor(USB_ENDPOINT_TYPE_ISOCHRONOUS, 1 /*IN*/, 0);
     if (epd == NULL) {
         DbgPrint("XBCAM: no iso endpoint\n");
+        CAMLOG("AddDevice: no iso endpoint -> UNSUPPORTED");
         Device->AddComplete(USBD_STATUS_UNSUPPORTED_DEVICE);
         return;
     }
     st->IsoEndpointAddress = epd->bEndpointAddress;            // expect 0x81  // HW: verify
+    CAMLOG("AddDevice: iso endpoint found");
 
     // --- cache + register ---
     st->Device = Device;
@@ -199,9 +216,7 @@ EXTERNUSB VOID CamAddDevice(IUsbDevice* Device)
     Device->SetClassSpecificType(0);       // ordinal into our type table
     Device->SetExtension(st);              // retrieve via GetExtension in Remove
 
-    // Nothing async needed at enum time for this device, so complete now.
-    // (If we needed control requests here, we'd cascade completions and call
-    //  AddComplete from the last one -- see the guide. Always set a watchdog.)
+    CAMLOG("AddDevice: AddComplete(SUCCESS)");
     Device->AddComplete(USBD_STATUS_SUCCESS);
 }
 
@@ -240,6 +255,7 @@ static LONG CamStartCapture(PCAM_DEVICE_STATE st)
     ULONG i;
 
     if (st->Streaming) return USBD_STATUS_SUCCESS;
+    CAMLOG("StartCapture: enter");
 
     // 1) Allocate contiguous frame buffers (DMA target). HW: tune count/size.
     for (i = 0; i < CAM_NUM_FRAME_BUFFERS; i++) {
@@ -267,7 +283,8 @@ static LONG CamStartCapture(PCAM_DEVICE_STATE st)
         st->InterfaceNumber,                   // wIndex = interface
         0);
     status = st->Device->SubmitRequest(&st->IsoUrb);
-    if (USBD_ERROR(status)) return status;     // HW: verify
+    if (USBD_ERROR(status)) { CAMLOG("StartCapture: SET_INTERFACE failed"); return status; }  // HW: verify
+    CAMLOG("StartCapture: SET_INTERFACE ok");
 
     // 3) Open the iso endpoint -> grab the handle.
     RtlZeroMemory(&st->IsoUrb, sizeof(URB));
@@ -276,6 +293,7 @@ static LONG CamStartCapture(PCAM_DEVICE_STATE st)
     status = st->Device->SubmitRequest(&st->IsoUrb);
     if (USBD_ERROR(status)) return status;
     st->IsoEndpointHandle = st->IsoUrb.IsochOpenEndpoint.EndpointHandle;
+    CAMLOG("StartCapture: iso endpoint opened");
 
     // 4) Start the iso stream.
     RtlZeroMemory(&st->IsoUrb, sizeof(URB));
@@ -300,6 +318,7 @@ static LONG CamStartCapture(PCAM_DEVICE_STATE st)
     }
 
     st->Streaming = TRUE;
+    CAMLOG("StartCapture: streaming");
     return USBD_STATUS_SUCCESS;
 }
 
