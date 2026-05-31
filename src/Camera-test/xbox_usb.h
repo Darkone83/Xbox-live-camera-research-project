@@ -171,30 +171,75 @@ extern "C" {
      *  [V] = layout from RE/spec, not from a symbol -- verify against RXDK headers.
      * ------------------------------------------------------------------ */
 
-     /* _PNP_CLASS_ID -- the class-driver match key. FindClassDriver compares
-      * descriptor[0]=class against (id & 0xff) and descriptor[1]=subclass against
-      * ((id>>8)&0xff). CONFIRMED passed BY VALUE in the mangled signatures
-      * (T_PNP_CLASS_ID, not PAT...), so it's a small value type -- a 32-bit id.
+     /* _PNP_CLASS_ID -- the class-driver match key. The authoritative union
+      * definition is folded in below (the registration-framework block). It is a
+      * 32-bit value passed BY VALUE in the mangled signatures (T_PNP_CLASS_ID):
       *   ?USBD_FindClassDriver@@YGPAU_USB_CLASS_DRIVER_DESCRIPTION@@T_PNP_CLASS_ID@@@Z
-      *   ?USBD_LoadClassDriver@@YIXPAVIUsbDevice@@T_PNP_CLASS_ID@@@Z */
-    typedef ULONG PNP_CLASS_ID, _PNP_CLASS_ID;
+      *   ?USBD_LoadClassDriver@@YIXPAVIUsbDevice@@T_PNP_CLASS_ID@@@Z
+      * (defined as union _PNP_CLASS_ID further down.) */
 
-    /* ============================================================================
-     *  URB FRAMEWORK -- FOLDED IN VERBATIM FROM THE XDK usb.h (AUTHORITATIVE).
-     *  This REPLACES all earlier [V] reconstructions. These are the exact MS
-     *  definitions the framework expects -- zero guesswork. Use the USB_BUILD_*
-     *  macros (below) to populate, never hand-stamp offsets.
-     * ============================================================================ */
+      /* ============================================================================
+       *  URB FRAMEWORK -- FOLDED IN VERBATIM FROM THE XDK usb.h (AUTHORITATIVE).
+       *  This REPLACES all earlier [V] reconstructions. These are the exact MS
+       *  definitions the framework expects -- zero guesswork. Use the USB_BUILD_*
+       *  macros (below) to populate, never hand-stamp offsets.
+       * ============================================================================ */
     typedef LONG USBD_STATUS;
-#define USBD_STATUS_SUCCESS        ((USBD_STATUS)0x00000000L)
-#define USBD_STATUS_PENDING        ((USBD_STATUS)0x40000000L)
-#define USBD_STATUS_ERROR          ((USBD_STATUS)0x80000000L)
-#define USBD_STATUS_UNSUPPORTED_DEVICE ((USBD_STATUS)0x80000400L)
+    /* full status table folded from usb.x (the master USB header source). */
+#define USBD_STATUS_SUCCESS                  ((USBD_STATUS)0x00000000L)
+#define USBD_STATUS_PENDING                  ((USBD_STATUS)0x40000000L)
+#define USBD_STATUS_HALTED                   ((USBD_STATUS)0xC0000000L)
+#define USBD_STATUS_ERROR                    ((USBD_STATUS)0x80000000L)
+/* completion error codes (read in the frame/transfer completion handler) */
+#define USBD_STATUS_CRC                      ((USBD_STATUS)0xC0000001L)
+#define USBD_STATUS_BTSTUFF                  ((USBD_STATUS)0xC0000002L)
+#define USBD_STATUS_DATA_TOGGLE_MISMATCH     ((USBD_STATUS)0xC0000003L)
+#define USBD_STATUS_STALL_PID                ((USBD_STATUS)0xC0000004L)
+#define USBD_STATUS_DEV_NOT_RESPONDING       ((USBD_STATUS)0xC0000005L)
+#define USBD_STATUS_PID_CHECK_FAILURE        ((USBD_STATUS)0xC0000006L)
+#define USBD_STATUS_UNEXPECTED_PID           ((USBD_STATUS)0xC0000007L)
+#define USBD_STATUS_DATA_OVERRUN             ((USBD_STATUS)0xC0000008L)
+#define USBD_STATUS_DATA_UNDERRUN            ((USBD_STATUS)0xC0000009L)
+#define USBD_STATUS_BUFFER_OVERRUN           ((USBD_STATUS)0xC000000CL)
+#define USBD_STATUS_BUFFER_UNDERRUN          ((USBD_STATUS)0xC000000DL)
+#define USBD_STATUS_NOT_ACCESSED             ((USBD_STATUS)0xC000000EL)
+#define USBD_STATUS_CANCELED                 ((USBD_STATUS)0xC000000FL)
+#define USBD_STATUS_FIFO                     ((USBD_STATUS)0xC0000010L)
+#define USBD_STATUS_ENDPOINT_HALTED          ((USBD_STATUS)0xC0000030L)
+#define USBD_STATUS_CANCELING                ((USBD_STATUS)0x40020000L)
+/* software / request error codes */
+#define USBD_STATUS_NO_MEMORY                ((USBD_STATUS)0x80000100L)
+#define USBD_STATUS_INVALID_URB_FUNCTION     ((USBD_STATUS)0x80000200L)
+#define USBD_STATUS_INVALID_PARAMETER        ((USBD_STATUS)0x80000300L)
+#define USBD_STATUS_UNSUPPORTED_DEVICE       ((USBD_STATUS)0x80000400L)  /* no class driver matched */
+#define USBD_STATUS_TRANSFER_TOO_LONG        ((USBD_STATUS)0x80000500L)
+#define USBD_STATUS_REQUEST_FAILED           ((USBD_STATUS)0x80000600L)
+#define USBD_STATUS_NO_DEVICE                ((USBD_STATUS)0x80000700L)
+#define USBD_STATUS_NO_BANDWIDTH             ((USBD_STATUS)0x80000800L)  /* alt-setting too greedy */
+#define USBD_STATUS_INTERNAL_HC_ERROR        ((USBD_STATUS)0x80000900L)
+#define USBD_STATUS_ERROR_SHORT_TRANSFER     ((USBD_STATUS)0x80000A00L)
+/* isoch-specific (the camera frame path) */
+#define USBD_STATUS_BAD_START_FRAME          ((USBD_STATUS)0xC0000B00L)
+#define USBD_STATUS_ISOCH_REQUEST_FAILED     ((USBD_STATUS)0xC0000C00L)
+#define USBD_STATUS_ISOCH_TOO_MANY_BUFFERS   ((USBD_STATUS)0xC0000D00L)
+#define USBD_STATUS_ISOCH_ALREADY_STARTED    ((USBD_STATUS)0xC0000E00L)
+#define USBD_STATUS_ISOCH_NOT_STARTED        ((USBD_STATUS)0xC0000F00L)
+#define USBD_STATUS_ISOCH_ATTACH_MORE_BUFFERS ((USBD_STATUS)0xC0001000L)
+#define USBD_STATUS_ISOCH_NOT_SUPPORTED      ((USBD_STATUS)0xC0002000L)
+/* per-packet ConditionCode values (USBD_ISOCH_PACKET_STATUS_WORD.ConditionCode) */
+#define USBD_ISOCH_STATUS_CRC                  1
+#define USBD_ISOCH_STATUS_DEV_NOT_RESPONDING   5
+#define USBD_ISOCH_STATUS_DATA_OVERRUN         8
+#define USBD_ISOCH_STATUS_DATA_UNDERRUN        9
+#define USBD_ISOCH_STATUS_BUFFER_OVERRUN       0xC
+#define USBD_ISOCH_STATUS_BUFFER_UNDERRUN      0xD
+#define USBD_ISOCH_STATUS_NOT_ACCESSED         0xE
 #define USBD_SUCCESS(S) ((USBD_STATUS)(S) >= 0)
 #define USBD_ERROR(S)   ((USBD_STATUS)(S) < 0)
+#define USBD_HALTED(S)  ((ULONG)(S) >> 30 == 3)
 
-    /* opaque framework types referenced by signatures (names confirmed from libs;
-     * internals not needed by a class driver) */
+/* opaque framework types referenced by signatures (names confirmed from libs;
+ * internals not needed by a class driver) */
     typedef struct _KEVENT               KEVENT, * PKEVENT;               /* NT event (xbox_native.h) */
     typedef struct _USBD_HOST_CONTROLLER USBD_HOST_CONTROLLER, * PUSBD_HOST_CONTROLLER;
     typedef struct _TRANSFER             TRANSFER, * PTRANSFER;
@@ -450,20 +495,123 @@ extern "C" {
 
 
 
-    typedef struct _USB_RESOURCE_REQUIREMENTS  USB_RESOURCE_REQUIREMENTS, * PUSB_RESOURCE_REQUIREMENTS;   /* [V] opaque */
-    typedef struct _HCD_RESOURCE_REQUIREMENTS  HCD_RESOURCE_REQUIREMENTS, * PHCD_RESOURCE_REQUIREMENTS;   /* [V] opaque */
+      /* ============================================================================
+       *  CLASS-DRIVER REGISTRATION FRAMEWORK -- FOLDED FROM usb.x (AUTHORITATIVE).
+       *  This REPLACES the earlier [V] guess at the descriptor layout (which was wrong
+       *  -- it is NOT a [0]=class/[1]=sub/[+4]/[+8] byte struct; it is PNP_CLASS_ID +
+       *  three fn-pointers + a device-type table). A driver uses the macros at the
+       *  bottom of this block; it should not build the descriptor by hand.
+       * ============================================================================ */
 
-    /* The class-driver descriptor (one entry in the table at 0x1b2774).
-     * Layout CONFIRMED from decomp (BUILD_SPEC §3.5):
-     *   [0]=class  [1]=subclass  [+4]=Register(fn)  [+8]=Attach(fn)  */
+       /* opaque resource-requirement struct the FULL version is below (USB_RESOURCE_
+        * REQUIREMENTS is defined for real here now, from the official guide). */
+    typedef struct _HCD_RESOURCE_REQUIREMENTS  HCD_RESOURCE_REQUIREMENTS, * PHCD_RESOURCE_REQUIREMENTS;   /* opaque */
+
+    /* USB_RESOURCE_REQUIREMENTS -- from the official "Writing USB Class Drivers" guide.
+     * Filled in ClassInit and passed to IUsbInit::RegisterResources. */
+    typedef struct _USB_RESOURCE_REQUIREMENTS {
+        UCHAR ConnectorType;            /* USB_CONNECTOR_TYPE_* */
+        UCHAR MaxDevices;
+        UCHAR MaxCompositeInterfaces;
+        UCHAR MaxControlEndpoints;      /* excluding the default endpoint */
+        UCHAR MaxBulkEndpoints;
+        UCHAR MaxInterruptEndpoints;
+        UCHAR MaxControlTDperTransfer;
+        UCHAR MaxBulkTDperTransfer;
+        UCHAR MaxIsochEndpoints;
+        UCHAR MaxIsochMaxBuffers;
+    } USB_RESOURCE_REQUIREMENTS, * PUSB_RESOURCE_REQUIREMENTS;
+#define USB_CONNECTOR_TYPE_DIRECT      0
+#define USB_CONNECTOR_TYPE_HIGH_POWER  1
+#define USB_CONNECTOR_TYPE_LOW_POWER   2
+
+    /* PNP_CLASS_ID -- the real union (replaces the earlier "treat as ULONG" note).
+     * The descriptor's ClassId encodes level + class/subclass/protocol. */
+#ifndef PNP_CLASS_ID_DEFINED
+#define PNP_CLASS_ID_DEFINED
+    typedef union _PNP_CLASS_ID {
+        LONG AsLong;
+        struct {
+            UCHAR bClassSpecificType;
+            UCHAR bClass;
+            UCHAR bSubClass;
+            UCHAR bProtocol;
+        } USB;
+    } PNP_CLASS_ID, * PPNP_CLASS_ID;
+#endif
+#define PNP_DEVICE_LEVEL_CLASS     0x81
+#define PNP_INTERFACE_LEVEL_CLASS  0x82
+
+    /* device-type tracking */
+    typedef struct _USB_DEVICE_TYPE_DESCRIPTION {
+        PXPP_DEVICE_TYPE XppDeviceType;
+    } USB_DEVICE_TYPE_DESCRIPTION, * PUSB_DEVICE_TYPE_DESCRIPTION;
+
+    /* the three class-driver entry-point function-pointer types (need the interfaces) */
+#ifdef __cplusplus
+    class IUsbInit;     /* fwd (defined below) */
+    class IUsbDevice;   /* fwd (defined below) */
+    typedef VOID(*PFNINIT_USB_DRIVER)(IUsbInit* UsbInit);
+    typedef VOID(*PFNADD_USB_DEVICE)(IUsbDevice* Device);
+    typedef VOID(*PFNREMOVE_USB_DEVICE)(IUsbDevice* Device);
+
+    /* the REAL class-driver descriptor (PNP_CLASS_ID + 3 fns + type table) */
     typedef struct _USB_CLASS_DRIVER_DESCRIPTION {
-        UCHAR  bClass;                                  /* [+0] match: class    */
-        UCHAR  bSubClass;                               /* [+1] match: subclass */
-        USHORT wReserved;                               /* [+2] [V] padding     */
-        VOID(__cdecl* Register)(PVOID initContext);    /* [+4] called by XInitDevices for each entry */
-        VOID(__stdcall* Attach)(PVOID usbDevice);      /* [+8] called by USBD_LoadClassDriver on match */
-        /* further fields per RE / RXDK header -- [V] */
+        PNP_CLASS_ID          ClassId;
+        PFNINIT_USB_DRIVER    Init;
+        PFNADD_USB_DEVICE     AddDevice;
+        PFNREMOVE_USB_DEVICE  RemoveDevice;
+        ULONG                 DeviceTypeCount;
+        PXPP_DEVICE_TYPE* DeviceTypes;
     } USB_CLASS_DRIVER_DESCRIPTION, * PUSB_CLASS_DRIVER_DESCRIPTION;
+#endif /* __cplusplus */
+
+    /* EXTERNUSB -- the linkage the macros use (extern "C" in C++). */
+#ifndef EXTERNUSB
+#ifdef __cplusplus
+#define EXTERNUSB extern "C"
+#else
+#define EXTERNUSB extern
+#endif
+#endif
+
+/* ---- the registration macros (verbatim from usb.x) ----
+ * Usage in a driver (ClassName e.g. "Cam"):
+ *   DECLARE_XPP_TYPE(XbCameraType)                 // creates XbCameraType_TABLE
+ *   USB_DEVICE_TYPE_TABLE_BEGIN(Cam)
+ *       USB_DEVICE_TYPE_TABLE_ENTRY(&XbCameraType_TABLE)
+ *   USB_DEVICE_TYPE_TABLE_END()
+ *   USB_CLASS_DRIVER_DECLARATION(Cam, 0xFF, 0xFF, 0xFF)   // declares CamInit/AddDevice/RemoveDevice
+ *   #pragma data_seg(".XPP$ClassCam")
+ *   USB_CLASS_DECLARATION_POINTER(Cam)
+ *   #pragma data_seg(".XPP$Data")
+ * Then DEFINE CamInit/CamAddDevice/CamRemoveDevice. */
+#define DECLARE_XPP_TYPE(XppTypeName) \
+    EXTERNUSB XPP_DEVICE_TYPE XppTypeName##_TABLE = {0,0,0};
+
+#define USB_DEVICE_TYPE_TABLE_BEGIN(ClassName) \
+    EXTERNUSB PXPP_DEVICE_TYPE ClassName##Types[]={
+
+#define USB_DEVICE_TYPE_TABLE_ENTRY(XppDeviceType) \
+    (XppDeviceType)
+
+#define USB_DEVICE_TYPE_TABLE_END() };
+
+#define USB_CLASS_DRIVER_DECLARATION(ClassName, bClass, bSubClass, bProtocol) \
+    EXTERNUSB VOID ClassName##Init(IUsbInit *UsbInit); \
+    EXTERNUSB VOID ClassName##AddDevice(IUsbDevice *Device); \
+    EXTERNUSB VOID ClassName##RemoveDevice(IUsbDevice *Device); \
+    EXTERNUSB USB_CLASS_DRIVER_DESCRIPTION ClassName##Description = { \
+        {PNP_INTERFACE_LEVEL_CLASS + (((bClass) << 8) + ((bSubClass) << 16) + ((bProtocol) << 24))}, \
+        ClassName##Init, \
+        ClassName##AddDevice, \
+        ClassName##RemoveDevice, \
+        sizeof(ClassName##Types)/sizeof(PXPP_DEVICE_TYPE), \
+        ClassName##Types \
+    };
+
+#define USB_CLASS_DECLARATION_POINTER(ClassName) \
+    EXTERNUSB USB_CLASS_DRIVER_DESCRIPTION *ClassName##DescriptionPointer = &ClassName##Description;
 
 #ifdef __cplusplus
 }  /* extern "C" */
@@ -495,18 +643,30 @@ public:
     LONG  CancelRequest(_URB* urb);
 
     /* ?GetDeviceDescriptor@IUsbDevice@@QBEPBU_USB_DEVICE_DESCRIPTOR8@@XZ
-       public: struct _USB_DEVICE_DESCRIPTOR8 const* __thiscall (void) const */
+       public: struct _USB_DEVICE_DESCRIPTOR8 const* __thiscall (void) const
+       *** IMPORTANT (per the official "Writing USB Class Drivers" guide): this returns
+       only the FIRST 8 BYTES of the device descriptor (that's what "8" means).
+       VID/PID live at offsets 8-11 -- BEYOND byte 8 -- so to read VID/PID you must
+       send a separate GET_DESCRIPTOR control request for the full 18 bytes. Do NOT
+       read idVendor/idProduct from this pointer. ***
+       Enumeration-time only (ASSERTs/garbage if called later). */
     const USB_DEVICE_DESCRIPTOR8* GetDeviceDescriptor() const;
 
-    /* ?GetConfigurationDescriptor@IUsbDevice@@QBEPBU_USB_CONFIGURATION_DESCRIPTOR@@XZ */
+    /* ?GetConfigurationDescriptor@IUsbDevice@@QBEPBU_USB_CONFIGURATION_DESCRIPTOR@@XZ
+       returns the FULL config descriptor (walkable). Enumeration-time only. */
     const USB_CONFIGURATION_DESCRIPTOR* GetConfigurationDescriptor() const;
 
-    /* ?GetInterfaceDescriptor@IUsbDevice@@QBEPBU_USB_INTERFACE_DESCRIPTOR@@XZ */
+    /* ?GetInterfaceDescriptor@IUsbDevice@@QBEPBU_USB_INTERFACE_DESCRIPTOR@@XZ
+       returns the interface descriptor THIS ClassAddDevice was called for.
+       Enumeration-time only. */
     const USB_INTERFACE_DESCRIPTOR* GetInterfaceDescriptor() const;
 
     /* ?GetEndpointDescriptor@IUsbDevice@@QBEPBU_USB_ENDPOINT_DESCRIPTOR@@EEE@Z
-       (uchar, uchar, uchar) const -- (interface, alt, endpoint) */
-    const USB_ENDPOINT_DESCRIPTOR* GetEndpointDescriptor(UCHAR iface, UCHAR alt, UCHAR ep) const;
+       CORRECTED signature (per the guide): (EndpointType, Direction, Index) --
+       finds the Index-th endpoint of the given type+direction on THIS interface.
+       e.g. GetEndpointDescriptor(USB_ENDPOINT_TYPE_ISOCHRONOUS, 1 [IN], 0) for the
+       camera iso video endpoint. Enumeration-time only. */
+    const USB_ENDPOINT_DESCRIPTOR* GetEndpointDescriptor(UCHAR EndpointType, BOOLEAN Direction, UCHAR Index) const;
 
     /* ?OpenDefaultEndpoint@IUsbDevice@@AAEJPAT_URB@@@Z  (private: AAE) */
     /* ?CloseDefaultEndpoint@IUsbDevice@@AAEJPAT_URB@@@Z (private: AAE) */

@@ -282,6 +282,52 @@ the video endpoint, start transfer, attach frame-sized buffers, on completion
 process the RGB frame). All in real, compilable Microsoft code. The control path is
 the `USB_BUILD_CONTROL_TRANSFER` form. **Get `usb.h` to make `xbox_usb.h` complete.**
 
+## 3.8 USBCAMD.SYS — the camera minidriver framework (IMPORTANT, revises strategy)
+
+`USBCamD.lib` is the **import library for `USBCAMD.SYS`** — the generic USB *camera*
+minidriver framework (the Windows USBCAMD class-driver model, ported to Xbox). This
+is the substrate the original camera support was built on. It is **title-supplied,
+NOT a stock kernel driver** (absent from xdrivers.txt: usbd/usbhub/usbpnp/xid/mu),
+which means Video Chat shipped it **statically linked into the XBE** — so the
+`0x000Cxxxx` "bespoke" region is almost certainly **USBCAMD + an OV519/OV530
+minidriver linked in**, not from-scratch code. These exports name those functions.
+
+**Exported API (what USBCAMD.SYS provides):**
+```
+USBCAMD_DriverEntry@20            minidriver entry / registration
+USBCAMD_InitializeNewInterface@16 interface setup on connect
+USBCAMD_SelectAlternateInterface@8  SET_INTERFACE / alt-setting (bandwidth select)
+USBCAMD_AdapterReceivePacket@16   iso frame-data callback (frames arrive here)
+USBCAMD_ControlVendorCommand@36   OV519 vendor control transfers (reg read/write)
+USBCAMD_GetRegistryKeyValue@20    config lookup
+USBCAMD_Debug / DllUnload
+```
+The classic USBCAMD split: USBCAMD handles iso streaming + KS plumbing; a tiny
+**minidriver** supplies the camera-specific bits (OV519 vendor commands, format/alt
+selection, per-frame processing).
+
+### Two build paths (this find opens Path B)
+**Path A — full class driver (original plan):** write at the `IUsbDevice` level, open
+iso endpoints, build URBs by hand (SLIX/XID style). Max control, most work
+(Phases 3-4 are all on us).
+
+**Path B — minidriver on USBCAMD (newly visible, likely easier):** provide the OV519
+specifics and let USBCAMD do the iso streaming + frame delivery. Far less iso
+plumbing — USBCAMD does the hard Phase-4 part. Needs: link `USBCamD.lib`, supply the
+minidriver callbacks, and have `USBCAMD.SYS` code present (it was static-linked into
+Video Chat, so the framework is in our decomp — we can identify it via these export
+names and reuse the pattern).
+
+### Recommended next step (decomp, free, pre-hardware)
+Apply these `USBCAMD_*` names to the decomp (they're in `0x000Cxxxx`). That will:
+1. Confirm the `0x000Cxxxx` region = USBCAMD + minidriver (not opaque app code).
+2. Reveal the **OV519 minidriver** — the camera-specific vendor commands, format
+   tables, and per-frame handling — which is the actual thing we need to replicate.
+3. Decide A vs B: if USBCAMD is cleanly separable, Path B is the lighter build.
+
+This likely **collapses the iso-streaming risk** (Phase 4) if Path B works, since
+USBCAMD owns the streaming loop.
+
 ## 4. Structs needed (and where each comes from)
 
 **Iso buffer allocation (from mm.h):** iso/frame buffers must be **physically
