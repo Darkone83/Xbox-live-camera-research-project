@@ -34,8 +34,8 @@ kept but clearly marked.
 | `archive/build_spec.md` | Build plan for that model. Symbol maps/struct provenance may still help; the strategy is dead. |
 
 ## Source & headers
-- `examples/xb_cam.cpp`, `examples/main.cpp`, `examples/xb_cam.h` — the shipped driver/harness.
-- `examples/xbox_usb.h` — **the master authoritative USB header** (see below).
+- `src/Camera-Test/xb_cam.cpp`, `src/Camera-Test/main.cpp`, `src/Camera-Test/xb_cam.h` — the shipped driver/harness.
+- `src/Camera-Test/xbox_usb.h` — **the master authoritative USB header** (see below).
 - `set/*.set` — OV register tables (now primary; `7648519.set` = EyeToy).
 
 ---
@@ -59,5 +59,5 @@ work —
 
 Every USB symbol referenced by `xb_cam.cpp` resolves inside `xbox_usb.h`; nothing in
 the working driver depends on the external XDK `usb.h`. No struct edits are required
-to make it authoritative — it already is. Keep `examples/xbox_usb.h` as the single
+to make it authoritative — it already is. Keep `src/Camera-Test/xbox_usb.h` as the single
 canonical copy and delete/avoid any divergent duplicates.
