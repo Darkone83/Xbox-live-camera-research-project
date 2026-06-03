@@ -2,7 +2,7 @@
 ## Team Resurgent / Darkone83
 
 > **STATUS: HARDWARE-VERIFIED.** Describes the on-wire format the EyeToy actually
-> delivers and how the working driver (`examples/xb_cam.cpp`, `Cam_IsoComplete` +
+> delivers and how the working driver (`src/Camera-Test/xb_cam.cpp`, `Cam_IsoComplete` +
 > `Cam_DecodeJpegToYUY2`) reassembles and decodes it. This replaces the earlier
 > (wrong) claim that the camera outputs raw **RGB24 / I420**. It does not. It
 > outputs **baseline MJPEG**.
