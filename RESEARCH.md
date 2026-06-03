@@ -1,30 +1,3 @@
-# >>> STATUS BANNER (added after hardware success) <<<
-#
-# The driver now WORKS ON HARDWARE via a model this log did NOT predict:
-# manual USB enumeration (the camera is not a g_DeviceTree node) + a full
-# OV519/OV7648 REGISTER REPLAY + an MJPEG wire format. The authoritative
-# description is WORKING_IMPLEMENTATION.md.
-#
-# This file is the historical investigation log. Read it as "how we reasoned,"
-# NOT as current truth. TWO models in here are now superseded:
-#   1. the IOCTL/registry model (this log already retired it -- see its own
-#      "Superseded model" section), AND
-#   2. the class-driver / XInitDevices / "standard iso-video, no register replay /
-#      RGB24 output" model that this log treats as CURRENT -- that is ALSO wrong.
-# Both are replaced by the manual-enumeration + register-replay + MJPEG model.
-#
-# Specifically falsified by hardware:
-#   * "standard USB iso-video device, no OV519 register replay"  -> FALSE
-#   * ".set tables not used on Xbox"                              -> FALSE (they were the key)
-#   * "rides XInitDevices, no enumeration of our own"             -> FALSE (manual hub enum)
-#   * "match by class 0xFF / subclass 0"                          -> N/A (own-node, not class match)
-#   * "outputs RGB24/I420, default 320x240 RGB24"                 -> FALSE (MJPEG)
-#   * "EyeToy is composite/needs reflash"                         -> test unit was single-video 054C:0155
-# Still valid: hardware facts (OV7648+OV519, VID/PIDs, OHCI@0xFED00000), the URB/iso
-# struct model (section 6), the camera-object RE (section 7, historical), and the
-# debugging method.
-# >>> END STATUS BANNER <<<
-
 # Original Xbox Camera — Reverse-Engineering Research Log
 ## Team Resurgent / Darkone83
 
