@@ -1,17 +1,3 @@
-# >>> STATUS BANNER (added after hardware success) <<<
-#
-# The PARSED DESCRIPTOR below (device/config/endpoint/strings/CAMERAMATE block) is
-# valid hardware reference for the FIRST-PARTY Xbox Live Vision camera (045E:028C)
-# and is kept as-is. Two interpretive sections are CORRECTED -- see "CORRECTIONS"
-# at the bottom:
-#   * the "EyeToy = 3-interface composite, needs reflash" crux: our EyeToy test unit
-#     enumerated as SINGLE-VIDEO at 054C:0155 and streamed with NO reflash;
-#   * the "Driver implications: match by class 0xFF" items: the shipped driver owns
-#     the device by manual hub-port reset + AllocDevice, NOT by class match. (The one
-#     implication that held: start/stop by SET_INTERFACE alt-setting.)
-# Authoritative implemented path: WORKING_IMPLEMENTATION.md.
-# >>> END STATUS BANNER <<<
-
 # Xbox Camera EEPROM — parsed descriptor reference
 
 Source: `Xbox_Camera_EEPROM.bin` (512 bytes, 24x04 EEPROM on the Xbox Video Camera
