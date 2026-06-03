@@ -79,5 +79,4 @@ per-frame heap (all buffers `MmAllocateContiguousMemory` once, freed once with
 
 ## Status
 Working on hardware: detects, enumerates, brings up the sensor, streams MJPEG, and
-displays a live image. Remaining polish: stock-EyeToy PID acceptance, other
-resolutions/alts, decode-cost profiling at larger modes.
+displays a live image.
