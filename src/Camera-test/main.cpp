@@ -86,6 +86,8 @@ extern "C" {
 #define TXT_CH          16   /* legacy; unused with cam_font */
 
 /* Preview quad: 320x240 source scaled 1.5x -> 480x360, centred-ish         */
+#define CAM_TEX_W       512    /* pow2 alloc for swizzled YUY2 (uses 320) */
+#define CAM_TEX_H       256    /* pow2 alloc for swizzled YUY2 (uses 240) */
 #define CAM_VIEW_W      480
 #define CAM_VIEW_H      360
 #define CAM_VIEW_X      ((SCR_W - CAM_VIEW_W) / 2)
@@ -236,15 +238,16 @@ static void DrawCamQuad(int x, int y, int w, int h)
     float    fw = (float)(x + w);
     float    fh = (float)(y + h);
 
+    float um = (float)XCAM_FRAME_W / (float)CAM_TEX_W;   /* 320/512 */
+    float vm = (float)XCAM_FRAME_H / (float)CAM_TEX_H;   /* 240/256 */
     v[0].x = fx; v[0].y = fy; v[0].z = 0.0f; v[0].rhw = 1.0f; v[0].color = 0xFFFFFFFF; v[0].u = 0.0f; v[0].v = 0.0f;
-    v[1].x = fw; v[1].y = fy; v[1].z = 0.0f; v[1].rhw = 1.0f; v[1].color = 0xFFFFFFFF; v[1].u = 1.0f; v[1].v = 0.0f;
-    v[2].x = fx; v[2].y = fh; v[2].z = 0.0f; v[2].rhw = 1.0f; v[2].color = 0xFFFFFFFF; v[2].u = 0.0f; v[2].v = 1.0f;
-    v[3].x = fw; v[3].y = fh; v[3].z = 0.0f; v[3].rhw = 1.0f; v[3].color = 0xFFFFFFFF; v[3].u = 1.0f; v[3].v = 1.0f;
+    v[1].x = fw; v[1].y = fy; v[1].z = 0.0f; v[1].rhw = 1.0f; v[1].color = 0xFFFFFFFF; v[1].u = um;   v[1].v = 0.0f;
+    v[2].x = fx; v[2].y = fh; v[2].z = 0.0f; v[2].rhw = 1.0f; v[2].color = 0xFFFFFFFF; v[2].u = 0.0f; v[2].v = vm;
+    v[3].x = fw; v[3].y = fh; v[3].z = 0.0f; v[3].rhw = 1.0f; v[3].color = 0xFFFFFFFF; v[3].u = um;   v[3].v = vm;
 
     /* Xbox extension: enable YUV->RGB conversion during sampling.
        Colour comes from the texture; alpha from diffuse (opaque) so the
        preview can't be blended away by YUY2's undefined alpha channel.   */
-    s_pDev->SetRenderState(D3DRS_YUVENABLE, TRUE);
     s_pDev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1); /* texture */
     s_pDev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
     s_pDev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2); /* diffuse */
@@ -252,7 +255,6 @@ static void DrawCamQuad(int x, int y, int w, int h)
     s_pDev->SetTexture(0, s_pCamTex);
     s_pDev->SetVertexShader(FVF_PCT);
     s_pDev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, v, sizeof(VERT_PCT));
-    s_pDev->SetRenderState(D3DRS_YUVENABLE, FALSE);
     s_pDev->SetTexture(0, NULL);
 }
 
@@ -460,8 +462,10 @@ static void BeginCameraTest(void)
 
     /* Lazily create the YUY2 preview texture once. */
     if (s_pCamTex == NULL) {
-        hr = s_pDev->CreateTexture(XCAM_FRAME_W, XCAM_FRAME_H, 1, 0,
-            D3DFMT_YUY2, D3DPOOL_MANAGED, &s_pCamTex);
+        /* Swizzled YUY2 needs power-of-2 dims; alloc 512x256 and use only the
+           top-left 320x240. xb_cam swizzles the frame in via XGSwizzleRect. */
+        hr = s_pDev->CreateTexture(CAM_TEX_W, CAM_TEX_H, 1, 0,
+            D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &s_pCamTex);
         s_camTexOK = SUCCEEDED(hr);
         if (!s_camTexOK)
             s_pCamTex = NULL;
@@ -575,10 +579,17 @@ void __cdecl main(void)
     WORD press;
     BOOL running = TRUE;
 
-    InitInput();        /* registers device types + opens already-present pads */
+    /* Logger + driver sink FIRST -- InitInput() calls XInitDevices, which is when
+       the driver's CamInit (registration) AND the initial CamAddDevice for an
+       already-connected camera fire. If we wire the sink after InitInput, those
+       early breadcrumbs are emitted into a NULL sink and lost -- exactly the
+       diagnostics we need. So set up logging before InitInput. */
     Dbg_Init();                         /* on-screen + D:\xb_cam.txt logger    */
     XCam_SetLog(Dbg_GetSink());         /* driver logs into the same sink      */
-    Dbg_Log("HARNESS", "boot: D3D + input + log up");
+    Dbg_Log("HARNESS", "boot: log up, calling InitInput (XInitDevices)");
+
+    InitInput();        /* registers device types + opens already-present pads */
+    Dbg_Log("HARNESS", "boot: InitInput returned");
 
     if (!InitD3D()) {
         /* Nothing we can draw to; bail out. */

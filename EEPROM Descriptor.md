@@ -1,3 +1,17 @@
+# >>> STATUS BANNER (added after hardware success) <<<
+#
+# The PARSED DESCRIPTOR below (device/config/endpoint/strings/CAMERAMATE block) is
+# valid hardware reference for the FIRST-PARTY Xbox Live Vision camera (045E:028C)
+# and is kept as-is. Two interpretive sections are CORRECTED -- see "CORRECTIONS"
+# at the bottom:
+#   * the "EyeToy = 3-interface composite, needs reflash" crux: our EyeToy test unit
+#     enumerated as SINGLE-VIDEO at 054C:0155 and streamed with NO reflash;
+#   * the "Driver implications: match by class 0xFF" items: the shipped driver owns
+#     the device by manual hub-port reset + AllocDevice, NOT by class match. (The one
+#     implication that held: start/stop by SET_INTERFACE alt-setting.)
+# Authoritative implemented path: WORKING_IMPLEMENTATION.md.
+# >>> END STATUS BANNER <<<
+
 # Xbox Camera EEPROM — parsed descriptor reference
 
 Source: `Xbox_Camera_EEPROM.bin` (512 bytes, 24x04 EEPROM on the Xbox Video Camera
@@ -97,3 +111,28 @@ lives here). It encodes the same bandwidths (0x180=384, 0x200=512, 0x300=768,
 5. **Interface count: Xbox Cam=1, EyeToy=3.** The EyeToy is composite (3 interfaces);
    our driver should bind interface 0 (video) and ignore the rest, so no EyeToy
    EEPROM reflash is required (unlike the patched original app, which expects count=1).
+
+---
+
+## CORRECTIONS (added after hardware success)
+
+1. **The EyeToy did not need to present as single-video.** The "bNumInterfaces must
+   be 1 / EyeToy is composite-3 / reflash or bind-interface-0" framing was written
+   for the *retail* Video Chat app. Our test EyeToy enumerated at address 0 as
+   `054C:0155` (the video-only ID) with a config we parsed directly, and streamed
+   without any EEPROM change. Whether a fully stock unit (possibly `0154`) behaves
+   the same is untested.
+
+2. **Class 0xFF is not our match key.** The shipped driver does not register a
+   `{class,subclass,Register,Attach}` descriptor and let the core stack attach. The
+   camera is not enumerated by the system, so that path never fires. We instead walk
+   `g_DeviceTree`, find the TI hub, reset the connected-but-not-enabled port, and
+   `g_DeviceTree.AllocDevice()` our own node. See `WORKING_IMPLEMENTATION.md` §2.
+
+3. **What held:** start streaming by `SET_INTERFACE(iface0, alt N)` and stop with
+   alt 0; iso IN endpoint `0x81`. The shipped driver pins alt 3 (320×240, maxpkt
+   768). The bandwidth/alt table below is accurate for the first-party descriptor.
+
+4. **Format:** the device streams MJPEG over the iso endpoint (see
+   `MJPEG_FRAME_FORMAT.md`); the descriptor's bandwidth figures are the iso
+   envelope, not a raw pixel format guarantee.

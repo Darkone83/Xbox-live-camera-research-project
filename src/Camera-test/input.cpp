@@ -1,6 +1,11 @@
 ﻿#include "input.h"
 #include <string.h>
 
+/* The camera class driver (xbcam.cpp) declares this device-type table via
+   DECLARE_XPP_TYPE(XbCameraType). We pass &XbCameraType_TABLE to XInitDevices
+   below so the framework activates the camera class driver. */
+extern "C" XPP_DEVICE_TYPE XbCameraType_TABLE;
+
 #define MAX_PORTS 4
 #define ANALOG_THRESHOLD 30       // 0..255 analog-button threshold
 #define STICK_DEADZONE  8000      // stick deadzone for GetSticks()
@@ -36,15 +41,22 @@ void InitInput()
        symbols live in XDK voice/keyboard libraries that this project does not
        link (they were the LNK2001 unresolved externals). cameratest needs
        neither voice nor keyboard, so they are omitted here. GAMEPAD and
-       MEMORY_UNIT resolve from the already-linked XAPI lib. */
+       MEMORY_UNIT resolve from the already-linked XAPI lib.
+
+       CAMERA: our custom class driver declares its own device type
+       (XbCameraType_TABLE, via DECLARE_XPP_TYPE in xbcam.cpp). It must be passed
+       to XInitDevices here or the framework never calls the driver's CamInit /
+       CamAddDevice -- which was exactly the "no XBCAM breadcrumbs" symptom. */
     {
-        XDEVICE_PREALLOC_TYPE types[2];
+        XDEVICE_PREALLOC_TYPE types[3];
         ZeroMemory(types, sizeof(types));
         types[0].DeviceType = XDEVICE_TYPE_GAMEPAD;
         types[0].dwPreallocCount = 4;
         types[1].DeviceType = XDEVICE_TYPE_MEMORY_UNIT;
         types[1].dwPreallocCount = 8;
-        XInitDevices(2, types);
+        types[2].DeviceType = &XbCameraType_TABLE;   /* our custom camera class */
+        types[2].dwPreallocCount = 1;
+        XInitDevices(3, types);
     }
     memset(g_padHandles, 0, sizeof(g_padHandles));
     memset(g_padLastPacket, 0xFF, sizeof(g_padLastPacket)); // 0xFFFFFFFF: ensures first real packet always processes

@@ -76,3 +76,17 @@ didn't return fast.")*
 - **Blocking/spinning in the iso completion** → frozen box, no bugcheck code.
 - **Double-buffer use-after-free** under streaming → `0xC6`.
 - **Bad `_PNP_CLASS_ID` / device-extension not set** before use → `0xA`.
+---
+
+## Addendum (post-hardware): the transfer pattern that avoided most of these
+
+The shipped driver never blocks on a `KEVENT` for transfers. It submits every URB
+with a **NULL completion** and `Header.Status` preset to a private `PENDING`
+sentinel, then **polls** the status (sync result lands in the header immediately;
+async spins with `Sleep(1)`, capped). The iso completion routine is `__stdcall`,
+**non-NULL** (the framework does not null-check it), and **non-blocking** — it only
+copies bytes and re-arms the attach URB. This is what kept "froze, no bugcheck code"
+(a blocking/spinning completion) from happening, and why the IRQL/sync codes above
+were largely avoided in practice. Pair this with: `MmFreeContiguousMemory` for every
+`MmAllocateContiguousMemory` (`0xC2` otherwise), and never reuse a stale
+`EndpointHandle` (`0x50`/`0xA`).

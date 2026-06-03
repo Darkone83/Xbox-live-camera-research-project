@@ -86,6 +86,8 @@ extern "C" {
 #define USB_DEVICE_CLASS_HUMAN_INTERFACE    0x03
 #define USB_DEVICE_CLASS_VENDOR_SPECIFIC    0xFF   /* EyeToy/OV519 likely enumerates here */
 
+#define USBD_MAX_CONFIG_DESC_SIZE     256
+
 /* NOTE: IUsbDevice::GetDeviceDescriptor() is mangled to return
  * _USB_DEVICE_DESCRIPTOR8 -- same 18-byte layout as _USB_DEVICE_DESCRIPTOR,
  * the "8" is just the XDK's internal variant name. We define both; treat as

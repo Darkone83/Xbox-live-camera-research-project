@@ -1,3 +1,24 @@
+# >>> STATUS BANNER (added after hardware success) <<<
+#
+# This is an accurate reverse-engineering trace of how the RETAIL "Xbox Video Chat"
+# XBE drives the camera (the 5-call XAPILIB API, the 'USBD' command marshaller, the
+# class-driver dispatch). It is REFERENCE / HISTORICAL.
+#
+# The SHIPPED homebrew driver does NOT use this path. It goes lower-level: it
+# manually enumerates the camera (which is not a g_DeviceTree node), owns its own
+# device node, and drives control + iso transfers directly -- bypassing the 5-call
+# API and the class-driver model described below. It also performs an OV519/OV7648
+# REGISTER REPLAY and decodes an MJPEG stream.
+#
+# Note: section 0 of this trace already hints at the truth -- it records the camera
+# driver "applies OV519 bridge + OV7648 sensor .set registers," which contradicts the
+# companion file's old "no register replay" verdict and matches what we actually had
+# to do.
+#
+# Authoritative implemented path: WORKING_IMPLEMENTATION.md (do not follow the
+# 5-call/class-driver path below for the homebrew driver).
+# >>> END STATUS BANNER <<<
+
 # USB transport + camera control — reverse-engineering notes
 
 **Team Resurgent / Darkone83.** How the Video Chat XBE drives the Sony EyeToy,
