@@ -2,7 +2,7 @@
 ## Team Resurgent / Darkone83
 
 > **STATUS: HARDWARE-VERIFIED.** This is the register sequence the working driver
-> (`examples/xb_cam.cpp`, `Cam_InitSensor`) actually applies to bring a Sony EyeToy
+> (`src/Camera-Test/xb_cam.cpp`, `Cam_InitSensor`) actually applies to bring a Sony EyeToy
 > from cold to a streaming 320×240 MJPEG source. It replaces the project's earlier
 > claim that "the OV519 self-configures and no register replay is needed" — that was
 > false. The gspca Linux `ov519` driver and the `.set` register tables (this repo's
