@@ -9,7 +9,7 @@ This is **chipset-specific OV519-family support**, not generic USB webcam/UVC su
 
 ## Executive summary
 
-The current implementation manually brings up an OV519-family camera on the original Xbox, initializes the OV519 bridge and OV76xx sensor path, captures MJPEG over USB isochronous transfer, decodes the JPEG frames in software, and displays them through an Xbox `D3DFMT_A8R8G8B8` texture.
+The current implementation manually brings up an OV519-family camera on the original Xbox, initializes the OV519 bridge and OV7xx0 sensor path, captures MJPEG over USB isochronous transfer, decodes the JPEG frames in software, and displays them through an Xbox `D3DFMT_A8R8G8B8` texture.
 
 The current code accepts these VID/PID pairs:
 
@@ -30,7 +30,7 @@ The code does **not** currently accept `054C:0154`.
 6. Reopens EP0 at the assigned USB address.
 7. Sends `SET_CONFIGURATION(1)`.
 8. Parses the configuration descriptor for an iso IN endpoint, preferring alt 3.
-9. Runs `Cam_InitSensor()` to configure the OV519 bridge and OV76xx/OV7648 sensor path.
+9. Runs `Cam_InitSensor()` to configure the OV519 bridge and OV7xx0 sensor path. The code selects the OV7648-class path when PID high is `0x76`; otherwise it uses an OV7620-style fallback table.
 10. Starts iso streaming with `ISOCH_OPEN_ENDPOINT`, `ISOCH_ATTACH_BUFFER`, and `ISOCH_START_TRANSFER`.
 11. Reassembles MJPEG frames using OV519 SOF/EOF packet markers and `PacketStatus[p].BytesRead`.
 12. Decodes completed JPEG frames with picojpeg.
