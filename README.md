@@ -1,5 +1,11 @@
 # Xbox Camera Test (Camera-test) — Team Resurgent / Darkone83
 
+<div align=center>
+
+<img src="https://github.com/Darkone83/Xbox-live-camera-research-project/blob/main/img/Camera_test.png" width=600>
+
+</div>
+
 A homebrew RXDK test app and USB camera driver for **OV519-family cameras on the original Xbox**, currently targeting:
 
 - **Sony EyeToy / OV519 + OV7648 path** — tested VID/PID: `054C:0155`
