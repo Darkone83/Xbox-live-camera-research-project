@@ -164,7 +164,19 @@ Display path:
 
 ---
 
-## 8. API behavior caveat
+## 8. Implemented public API
+
+The current `xb_cam.cpp` implements:
+
+- `XCam_SetLog()`
+- `XCam_Init()`
+- `XCam_IsStreaming()`
+- `XCam_DrawToSurface()`
+- `XCam_Shutdown()`
+
+`xb_cam.h` also declares older helper prototypes — `XCam_IsConnected()`, `XCam_GetCount()`, `XCam_GetInfo()`, and `XCam_Select()` — but those are not implemented in the current `xb_cam.cpp`. Treat them as stale declarations unless they are later implemented.
+
+## 9. API behavior caveat
 
 Current `XCam_Init()` return semantics are loose:
 
@@ -180,7 +192,7 @@ A future cleanup should return `XCAM_STATUS_OPEN_FAILED` if `s_streaming` remain
 
 ---
 
-## 9. Current source cleanup notes
+## 10. Current source cleanup notes
 
 The implementation is working, but stale names/comments remain:
 
@@ -189,5 +201,6 @@ The implementation is working, but stale names/comments remain:
 - `main.cpp` UI/comments still say YUY2 in several places.
 - `Cam_DecodeJpegToYUY2()` name is legacy.
 - `CAM_FRAME_BYTES` and some comments still mention RGB24/YUY2.
+- `xb_cam.h` declares multi-camera helper APIs that are not implemented in `xb_cam.cpp`.
 
 These are documentation/comment cleanup items, not evidence that the implemented path is still theoretical.
