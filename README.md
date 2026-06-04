@@ -2,7 +2,7 @@
 
 <div align=center>
 
-<img src="https://github.com/Darkone83/Xbox-live-camera-research-project/blob/main/img/Camera_test.png" width=600>
+<img src="https://github.com/Darkone83/Xbox-live-camera-research-project/blob/main/img/Camera_test.png" width=800>
 
 </div>
 
