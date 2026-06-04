@@ -60,7 +60,7 @@ The code also has a direct already-enumerated camera-node path if a real camera 
 | “Underlying driver is the async USB class driver; `CamAddDevice` attaches on hotplug.” | Class-driver declarations still exist, but the working path manually owns the camera through hub reset + `AllocDevice()`. |
 | “The camera is never a tree node.” | The validated path uses manual enumeration, but the code also handles an already-enumerated real camera VID/PID node. |
 | “Endpoint 0x81 / alt 3 / maxpkt 768 is hardcoded.” | The code parses descriptors, prefers alt 3, and falls back to the largest iso IN endpoint. The tested path is 0x81 / alt 3 / 768. |
-| “YUY2 preview.” | The current texture is `D3DFMT_A8R8G8B8`; YUY2 names/comments are legacy. |
+| “YUY2 preview.” | The current preview texture is `D3DFMT_A8R8G8B8`; remaining YUY2 text is limited to legacy symbol/function names. |
 | “`XCam_Init()` OK means streaming succeeded.” | Current code can return OK after a bring-up attempt even if streaming failed. Check `XCam_IsStreaming()`. |
 | “RGB24 frame output.” | Wire format is MJPEG; decoded output is 4-byte-per-pixel display data. |
 
@@ -73,7 +73,6 @@ The code also has a direct already-enumerated camera-node path if a real camera 
 - Only the QVGA 320×240 path is validated.
 - Larger modes and alternate settings are not profiled.
 - The public API return behavior should be tightened if this becomes a library instead of a test app.
-- Several source comments and UI strings still need cleanup to remove retired class-driver/YUY2 wording.
 - `xb_cam.h` declares multi-camera helper APIs that are not implemented in the current `xb_cam.cpp`.
 
 ---
