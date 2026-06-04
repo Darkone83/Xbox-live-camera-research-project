@@ -1,82 +1,135 @@
 # Xbox Camera Test (Camera-test) — Team Resurgent / Darkone83
 
-A homebrew RXDK test app + USB driver for the original Xbox camera: the **Sony
-EyeToy** (`054C:0155`, OmniVision OV519 + OV7648) and the **Xbox Live Vision /
-Xbox Cam** (`045E:028C`, OV530, OV519-compatible). It enumerates the camera
-manually, brings up the OV519 bridge + OV7648 sensor, streams **MJPEG** over an
-isochronous endpoint, decodes it in software, and shows a live image on screen,
-with crash-survivable logging to `D:\xb_cam.txt`.
+A homebrew RXDK test app and USB camera driver for **OV519-family cameras on the original Xbox**, currently targeting:
 
-> **STATUS: WORKING ON HARDWARE.** A recognizable 320×240 image streams from an
-> EyeToy on a retail box. Architecture below reflects the **shipped** design.
-> Full detail: `WORKING_IMPLEMENTATION.md`, `OV519_OV7648_INIT.md`,
-> `MJPEG_FRAME_FORMAT.md`.
+- **Sony EyeToy / OV519 + OV7648 path** — tested VID/PID: `054C:0155`
+- **Microsoft Xbox camera path** — accepted VID/PID in code: `045E:028C`
 
-> **History note.** Earlier revisions of this repo described a USB *class-driver*
-> design (vendor-class 0xFF match, `.XPP$Class` registration, "the bridge
-> self-configures, no register replay"). That model was disproven on hardware and
-> has been retired to `archive/`. See `RESEARCH.md` for how the conclusions changed.
+The driver manually brings up the camera on real Xbox hardware, initializes the OV519 bridge and OV76xx sensor path, streams **MJPEG** over a USB isochronous IN endpoint, decodes frames in software with picojpeg, and displays the live image through a swizzled `D3DFMT_A8R8G8B8` texture. Logging is mirrored to the screen and `D:\xb_cam.txt` for crash-survivable debugging.
 
-## Architecture (working model)
+> **STATUS: WORKING ON HARDWARE.** A recognizable 320×240 image streams from a real EyeToy on a retail original Xbox. This is chipset-specific OV519-family support, not generic UVC webcam support.
 
-The camera is **not** enumerated by the system, so the driver does it manually:
-walk `g_DeviceTree`, find the TI hub, scan its ports, reset the
-connected-but-not-enabled port, allocate our own device node, `SET_ADDRESS` /
-`SET_CONFIGURATION`, parse the config descriptor for the iso IN endpoint
-(`0x81`, alt 3 = 320×240, maxpkt 768). It then replays the **OV519 + OV7648**
-register init (gspca `ov519` path; `reg 0x72=0xEE` is mandatory), opens the iso
-pipe, and reassembles **MJPEG** frames from OV519-delimited iso packets (SOF
-`0x50` / EOF `0x51`, per-packet `BytesRead`). Each frame is decoded with picojpeg
-to BGRA and drawn from a swizzled `D3DFMT_A8R8G8B8` texture via `XGSwizzleRect`.
+> **Scope note.** `Cam_IsCameraId()` currently accepts `054C:0155` and `045E:028C`. It does **not** currently accept `054C:0154`; add that only if you intentionally want to test stock EyeToy variants that report that PID.
 
-### EyeToy on real hardware
-The test unit enumerated as single-video at `054C:0155` and streamed without an
-EEPROM reflash. `Cam_IsCameraId()` accepts `054C:0155` and `045E:028C`; if a stock
-unit reports `0154`, add it there.
+---
 
-## Files (shipped)
+## Architecture implemented by the code
+
+The validated EyeToy path uses **manual USB bring-up** rather than relying on a normal camera class-driver attach. The source still contains a class-driver declaration/resource breadcrumb, but the working path is:
+
+1. Walk `g_DeviceTree`.
+2. Find the internal TI hub.
+3. Scan hub ports for the connected camera port.
+4. Reset the connected-but-not-enabled port.
+5. Allocate and stamp an owned device node with `g_DeviceTree.AllocDevice()`.
+6. Open default EP0 at address 0.
+7. Read the device descriptor and confirm VID/PID.
+8. Allocate a USB address, send `SET_ADDRESS`, then close/reopen EP0.
+9. Send `SET_CONFIGURATION(1)`.
+10. Parse the config descriptor for an iso IN endpoint.
+11. Initialize the OV519 bridge and OV76xx/OV7648 sensor path.
+12. Select the streaming interface alt, open/attach/start iso transfer.
+13. Reassemble MJPEG frames from OV519-delimited iso packets.
+14. Decode JPEG to a 4-byte-per-pixel display buffer and swizzle it into an Xbox texture.
+
+The code also has a direct path for an already-enumerated real camera VID/PID node if one is found in the device tree.
+
+---
+
+## Endpoint and stream behavior
+
+The validated 320×240 path uses iso IN endpoint `0x81`, alt 3, max packet size 768 on the tested device. The code does not blindly assume those values in all cases:
+
+- `Cam_FindIsoEndpoint(..., wantAlt=3, ...)` reads the configuration descriptor.
+- It prefers alt 3.
+- If alt 3 is not found, it falls back to the largest max-packet iso IN endpoint found.
+- `Cam_StartStream()` uses the parsed interface, alt, endpoint address, and max packet size.
+
+The iso buffer uses 8 packets per attach. `Pattern[p]` must be filled with the selected `maxpkt`; leaving it zero requests zero bytes and produces an empty stream.
+
+---
+
+## OV519 / sensor bring-up
+
+The driver performs real register replay. The OV519 does not self-configure into a working stream for this homebrew path.
+
+Important implemented details:
+
+- OV519 bridge writes use vendor control request `0x41 / bRequest 0x01`.
+- OV519 bridge reads use `0xC1 / bRequest 0x01`.
+- Sensor SCCB/I2C is driven through OV519 registers `0x41`, `0x44`, `0x42`, `0x45`, and `0x47`.
+- `reg 0x72 = 0xEE` is required in the implemented bring-up; leaving the hardware default blocked sensor detection.
+- Sensor manufacturer ID is checked through `0x1C/0x1D`.
+- `0x0A == 0x76` selects the OV76xx/OV7648-class path.
+- The OV7648 path applies QVGA mode, sensor window, bridge geometry, frame-rate setup, restart, and LED enable.
+- A non-76xx OV7620-style branch remains in the source but is not the primary tested EyeToy path.
+
+See `OV519_OV7648_INIT.md` and `WORKING_IMPLEMENTATION.md` for the register-level notes.
+
+---
+
+## MJPEG frame assembly and display
+
+The wire format is **MJPEG**, not raw RGB24, I420, or YUY2.
+
+The iso completion path:
+
+- uses `PacketStatus[p].BytesRead` as the real packet length;
+- detects OV519 SOF/EOF markers: `FF FF FF 50` and `FF FF FF 51`;
+- strips the 16-byte SOF packet header;
+- accumulates JPEG bytes into a frame buffer;
+- publishes the completed JPEG frame on EOF.
+
+`XCam_DrawToSurface()` decodes newly completed JPEG frames with picojpeg and writes into a 512×256, 4-byte-per-pixel buffer for a 320×240 image in the top-left. The texture is `D3DFMT_A8R8G8B8` and is filled with `XGSwizzleRect()`.
+
+The decode function is still named `Cam_DecodeJpegToYUY2()` for legacy reasons, but it no longer outputs YUY2.
+
+---
+
+## Public API behavior
+
+`xb_cam.h` exposes:
+
+- `XCam_SetLog()`
+- `XCam_Init()`
+- `XCam_Shutdown()`
+- `XCam_IsStreaming()`
+- `XCam_DrawToSurface()`
+- basic detection/enumeration helpers
+
+Important current behavior: `XCam_Init()` may return `XCAM_STATUS_OK` after attempting bring-up even if streaming did not actually start. Callers should check `XCam_IsStreaming()` before treating the camera as live. A future code cleanup should make `XCam_Init()` return `XCAM_STATUS_OPEN_FAILED` if `s_streaming` is still false after bring-up.
+
+---
+
+## Files
 
 | File | Role |
 |---|---|
-| `main.cpp` | Test harness — D3D8 setup, on-screen UI, the camera preview quad (A8R8G8B8 texture, no YUVENABLE), on-screen debug overlay. |
-| `xb_cam.cpp` | The camera driver — manual enumeration, OV519/OV7648 bring-up, iso streaming, MJPEG assembly, picojpeg decode, swizzled display, and the public `XCam_*` API. |
-| `xb_cam.h` | Public API (`XCam_Init` / `XCam_Shutdown` / `XCam_IsStreaming` / `XCam_DrawToSurface` / `XCam_SetLog` + `XCAM_*` constants). |
-| `xbox_usb.h` | **Authoritative** Xbox USB header — `_URB` union, `USB_BUILD_*` macros, descriptors, `USBD_STATUS` table, `IUsbDevice`/`IUsbInit`, and (critically) the iso structs `USBD_ISOCH_BUFFER_DESCRIPTOR.Pattern[8]`, `USBD_ISOCH_PACKET_STATUS_WORD.BytesRead:12`, `USBD_ISOCH_TRANSFER_STATUS.PacketStatus[8]`. Only includes `<xtl.h>`. |
-| `xbox_kernel.h` | Kernel-primitive shim (`Ke*`/`Mm*`/`DbgPrint`/`KEVENT`). |
-| `picojpeg.cpp` / `.h` | Integer-only baseline-JPEG decoder (RXDK-safe). **Must be added to the `.vcxproj`** (compiles as C++). |
-| `font.cpp` / `font.h` | Glyph renderer — swizzled `D3DFMT_A8R8G8B8` atlas via `XGSwizzleRect`. **This is the display path the camera preview copies.** Needs `font_atlas.h`, links `xgraphics.lib`. |
-| `dbg.cpp` / `dbg.h` | On-screen ring buffer **and** crash-survivable mirror to `D:\xb_cam.txt` (per-line open/append/close, so the last line on disk survives a bugcheck). Driver logs via `XCam_SetLog`. |
-| `input.cpp` / `input.h` | Controller module (GAMEPAD + MEMORY_UNIT). |
+| `src/Camera-test/main.cpp` | RXDK test harness, D3D8 setup, UI, input, preview texture creation, calls the `XCam_*` API. Some comments/UI strings still say YUY2 even though the texture is A8R8G8B8. |
+| `src/Camera-test/xb_cam.cpp` | Camera implementation: device-tree walk, hub scan/reset, owned node creation, descriptor parsing, OV519/OV76xx bring-up, iso streaming, MJPEG assembly, picojpeg decode, swizzled display copy. |
+| `src/Camera-test/xb_cam.h` | Public API. Top comments need updating because they still describe the retired async class-driver model. |
+| `src/Camera-test/xbox_usb.h` | Xbox USB structs, URB helpers, descriptors, class-driver declarations, and iso structs used by this project. |
+| `src/Camera-test/picojpeg.cpp/.h` | Software baseline JPEG decoder used for MJPEG frames. |
+| `src/Camera-test/dbg.cpp/.h` | On-screen and `D:\xb_cam.txt` logging. |
+| `src/Camera-test/font.cpp/.h` | Font rendering and the proven swizzled A8R8G8B8 display path. |
+| `src/Camera-test/input.cpp/.h` | Controller input and device initialization. |
 
-### Required external assets
-- `font_atlas.h` for `font.cpp`.
-- Link: `xapilib`, `xgraphics.lib` (`XGSwizzleRect`), D3D8, kernel lib if separate.
-
-## On-screen / disk logging
-No Super I/O on a modded retail box, so `DbgPrint` goes nowhere readable — **the
-screen and `D:\xb_cam.txt` are the debug channels** (per-line flush survives a
-bugcheck). Pair the EIP from a fatal screen with the linker `.MAP` to land on the
-faulting function (see `bugcheck reference.md`).
-
-Breadcrumbs to watch (working path):
-- `camera PRESENT but NOT a claimable VID/PID node` → manual path engaged.
-- `*** PORT n ENABLED -- device live at addr 0 ***` → port reset worked.
-- `*** CAMERA NODE OWNED (VID/PID @ addr0) ***` → we own the device.
-- `*** SENSOR SYNCED=1`, `is 76xx (7648-class)=1` → SCCB + sensor up.
-- `*** ISO STREAM STARTED ***`, then `completed frames=…` → frames flowing.
-- `luma avg=…`, `center R=…` → decode is producing a real image.
+---
 
 ## Controls
-- **A / START** — begin / retry the camera test
+
+- **A / START** — begin or retry the camera test
+- **Y** — stop the camera and return to idle
 - **B / BACK** — exit
-- **Y** — stop camera, return to idle
 
-## Build notes (RXDK)
-No `sprintf`/`sscanf`/`strlen`; C89 declaration ordering; file-scope statics; no
-per-frame heap (all buffers `MmAllocateContiguousMemory` once, freed once with
-`MmFreeContiguousMemory`). Add `main.cpp`, `xb_cam.cpp`, `picojpeg.cpp`, `dbg.cpp`,
-`font.cpp`, `input.cpp` + headers; provide `font_atlas.h`; link the libs above.
+---
 
-## Status
-Working on hardware: detects, enumerates, brings up the sensor, streams MJPEG, and
-displays a live image.
+## Current limitations
+
+- Not generic UVC support.
+- Publicly accepted IDs are limited to `054C:0155` and `045E:028C` in the current code.
+- `054C:0154` is not accepted unless you add it.
+- Only the 320×240 path has been exercised as the validated path.
+- Larger modes and alternate settings are not profiled.
+- `XCam_Init()` return semantics should be tightened if this becomes a reusable driver API.
+- Some source comments and UI labels still use legacy YUY2/RGB24/class-driver wording.

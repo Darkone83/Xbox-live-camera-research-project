@@ -1,103 +1,82 @@
-# Original Xbox Camera Driver — Findings & Working Implementation
+# Original Xbox Camera Driver — Factual Summary Against Current Code
 ## Team Resurgent / Darkone83
 
-> **STATUS: WORKING ON HARDWARE.** A Sony EyeToy streams a live, recognizable
-> 320×240 image on a retail original Xbox. This summary reflects the **shipped,
-> proven** design. The authoritative deep-dive is `WORKING_IMPLEMENTATION.md`;
-> register detail is in `OV519_OV7648_INIT.md`; the wire format is in
-> `MJPEG_FRAME_FORMAT.md`; the authoritative USB header is `examples/xbox_usb.h`.
+> **STATUS: WORKING ON HARDWARE.** The current source implements a working OV519-family camera path on retail original Xbox hardware. The validated path streams a recognizable 320×240 image from a Sony EyeToy reporting `054C:0155`.
 
-> **This document was rewritten.** Its previous version asserted the camera was a
-> "standard USB iso-video device, no register replay, rides XInitDevices, outputs
-> RGB24." Every one of those claims was disproven on hardware. The history of how
-> the project reached the wrong conclusions (and corrected them) lives in
-> `RESEARCH.md`; this file now describes only what is true.
+This is **chipset-specific OV519-family support**, not generic USB webcam/UVC support.
 
 ---
 
-## 1. Executive summary
+## Executive summary
 
-The original Xbox camera **is** driven the way PC drivers drive it: a real
-OV519 bridge + OV7648 sensor register bring-up, with frames arriving as **MJPEG**
-over an isochronous endpoint. Two surprises defined the project:
+The current implementation manually brings up an OV519-family camera on the original Xbox, initializes the OV519 bridge and OV76xx sensor path, captures MJPEG over USB isochronous transfer, decodes the JPEG frames in software, and displays them through an Xbox `D3DFMT_A8R8G8B8` texture.
 
-1. **The camera is not enumerated by the system.** It is not a node in
-   `g_DeviceTree`; the class-driver/`XInitDevices` attach path never fires for it.
-   The driver therefore performs **manual USB enumeration** — hub port scan, port
-   reset, own device node, `SET_ADDRESS` / `SET_CONFIGURATION`, descriptor parse.
-2. **Register replay is required, not avoidable.** The OV519 does **not**
-   self-configure. The gspca `ov519` init sequence (and the `.set` tables) are the
-   core of bring-up; the one make-or-break write is `reg 0x72 = 0xEE`.
+The current code accepts these VID/PID pairs:
 
-Output is **baseline MJPEG** (~3 KB/frame), reassembled from OV519-delimited iso
-packets and decoded in software (picojpeg) to BGRA for display.
+- `054C:0155` — tested EyeToy / OV519 path
+- `045E:028C` — Microsoft Xbox camera path accepted by the code
+
+The code does **not** currently accept `054C:0154`.
 
 ---
 
-## 2. Hardware facts (confirmed on the bench)
+## What the code actually does
 
-- **EyeToy:** OmniVision **OV7648** sensor + **OV519** bridge. Enumerated VID/PID at
-  address 0 = **`0x054C / 0x0155`**. (Live Vision / Xbox Cam = `0x045E / 0x028C`,
-  OV530, OV519-compatible — same driver path.)
-- **Sensor IDs over SCCB:** MID `0x1C=0x7F`, `0x1D=0xA2`; PID `0x0A=0x76`,
-  `0x0B=0x48` → OV7648.
-- **Bus/topology:** OHCI, USB 1.1 full-speed. Camera hangs off the internal **TI
-  hub**, on a port that is *connected but not enabled* until reset. Iso IN endpoint
-  **`0x81`**, alt 3 = 320×240, **maxpkt 768**, iso buffer 8×768 = 6144 bytes.
-- **Wire format:** MJPEG (JPEG SOI `FF D8 FF E0`), **not** RGB24/I420/YUY2.
+1. Walks `g_DeviceTree` and inspects readable USB nodes.
+2. Finds the internal TI hub and scans downstream ports.
+3. Resets the connected-but-not-enabled port when the camera is stuck behind the hub.
+4. Allocates an owned device node with `g_DeviceTree.AllocDevice()`.
+5. Opens default EP0, reads VID/PID at address 0, then sends `SET_ADDRESS`.
+6. Reopens EP0 at the assigned USB address.
+7. Sends `SET_CONFIGURATION(1)`.
+8. Parses the configuration descriptor for an iso IN endpoint, preferring alt 3.
+9. Runs `Cam_InitSensor()` to configure the OV519 bridge and OV76xx/OV7648 sensor path.
+10. Starts iso streaming with `ISOCH_OPEN_ENDPOINT`, `ISOCH_ATTACH_BUFFER`, and `ISOCH_START_TRANSFER`.
+11. Reassembles MJPEG frames using OV519 SOF/EOF packet markers and `PacketStatus[p].BytesRead`.
+12. Decodes completed JPEG frames with picojpeg.
+13. Writes a 4-byte-per-pixel image buffer and swizzles it into an A8R8G8B8 D3D texture.
 
----
-
-## 3. The working pipeline (one line per stage)
-
-1. **Walk** `g_DeviceTree`; find the TI hub.
-2. **Scan hub ports**; the connected-but-not-enabled port is the camera.
-3. **Reset** that port → device live at address 0.
-4. **Own a node** (`g_DeviceTree.AllocDevice`, state `0xFE` fresh-open), open EP0.
-5. **Identify** via `GET_DESCRIPTOR`; `SET_ADDRESS` (framework-allocated) + reopen
-   EP0; `SET_CONFIGURATION(1)`.
-6. **Find the iso IN endpoint** in the config descriptor (contiguous DMA buffer,
-   shrink-and-retry within the control-TD pool).
-7. **Bring up OV519 + OV7648** (`init_519` with `0x72=0xEE`, `init_ov_sensor`,
-   OV7648 QVGA + window, geometry, `ov51x_restart`, LED on).
-8. **`SET_INTERFACE`(alt 3)** → `ISOCH_OPEN/ATTACH/START`; fill `Pattern[8]=maxpkt`.
-9. **Assemble MJPEG** from iso packets using `PacketStatus[i].BytesRead` and the
-   OV519 `0x50`/`0x51` SOF/EOF framing (strip the 16-byte SOF header).
-10. **Decode** (picojpeg → BGRA) and **display** via swizzled `A8R8G8B8` +
-    `XGSwizzleRect` (the proven `font.cpp` path; no `YUVENABLE`).
+The code also has a direct already-enumerated camera-node path if a real camera VID/PID node is found during the tree walk.
 
 ---
 
-## 4. Why the earlier model was wrong (kept as a warning)
+## Hardware facts reflected by the source
 
-| Old claim | Reality |
+- Validated frame size: 320×240.
+- Tested EyeToy VID/PID: `054C:0155`.
+- Accepted Microsoft camera VID/PID: `045E:028C`.
+- Iso endpoint selection is descriptor-based. The tested path resolves to endpoint `0x81`, alt 3, max packet 768.
+- Iso attach uses 8 packets per buffer.
+- `Pattern[p] = maxpkt` is required for all 8 iso frames.
+- Wire format is MJPEG.
+- Display texture is `D3DFMT_A8R8G8B8`, not YUY2.
+
+---
+
+## Important corrections to stale wording
+
+| Stale wording | Current code reality |
 |---|---|
-| Standard iso-video device, no register replay | Extensive OV519+OV7648 register init required; `0x72=0xEE` was the wall |
-| `.set` tables not used on Xbox | `.set` + gspca data are the **source** of the working init |
-| Rides `XInitDevices`; no enumeration of our own | Camera isn't a tree node; we enumerate manually |
-| Match by interface class 0xFF | We own the node by hub-port reset + `AllocDevice`, not class match |
-| Outputs RGB24/I420, default 320×240 RGB24 | Outputs **MJPEG**; decoded to BGRA |
-| EyeToy is composite/needs reflash | Test unit presented single-video at `054C:0155` |
+| “Underlying driver is the async USB class driver; `CamAddDevice` attaches on hotplug.” | Class-driver declarations still exist, but the working path manually owns the camera through hub reset + `AllocDevice()`. |
+| “The camera is never a tree node.” | The validated path uses manual enumeration, but the code also handles an already-enumerated real camera VID/PID node. |
+| “Endpoint 0x81 / alt 3 / maxpkt 768 is hardcoded.” | The code parses descriptors, prefers alt 3, and falls back to the largest iso IN endpoint. The tested path is 0x81 / alt 3 / 768. |
+| “YUY2 preview.” | The current texture is `D3DFMT_A8R8G8B8`; YUY2 names/comments are legacy. |
+| “`XCam_Init()` OK means streaming succeeded.” | Current code can return OK after a bring-up attempt even if streaming failed. Check `XCam_IsStreaming()`. |
+| “RGB24 frame output.” | Wire format is MJPEG; decoded output is 4-byte-per-pixel display data. |
 
 ---
 
-## 5. What this unlocks
+## Current limitations
 
-The manual-enumeration technique (own a node the framework won't claim, drive it
-over `IUsbDevice`/`SubmitRequest`) generalizes to **other non-enumerated USB devices
-on the original Xbox**. The camera driver is the template; the iso + register-replay
-pattern is reusable for other vendor-specific USB peripherals.
+- Only `054C:0155` and `045E:028C` are accepted by `Cam_IsCameraId()`.
+- `054C:0154` remains a follow-up/test item.
+- Only the QVGA 320×240 path is validated.
+- Larger modes and alternate settings are not profiled.
+- The public API return behavior should be tightened if this becomes a library instead of a test app.
+- Several source comments and UI strings still need cleanup to remove retired class-driver/YUY2 wording.
 
 ---
 
-## 6. Document map
+## Historical value
 
-- `WORKING_IMPLEMENTATION.md` — authoritative pipeline (read this first).
-- `OV519_OV7648_INIT.md` — the register sequence.
-- `MJPEG_FRAME_FORMAT.md` — iso packet + JPEG format.
-- `EEPROM Descriptor.md` — first-party Xbox Cam descriptor (hardware reference).
-- `bugcheck reference.md` — debugging codes (kept; thesis-independent).
-- `RESEARCH.md`, `USB Transport.md` — historical RE of the retail Video Chat XBE
-  (reference; **not** the implemented path).
-- `archive/` — the superseded class-driver model docs.
-- `examples/` — the shipped source; `xbox_usb.h` is the authoritative USB header.
+The important breakthrough is not simply that a camera image appears. The project proves a working pattern for manually owning and driving a USB video-class-like vendor device on the original Xbox when the normal exposed device path is not enough. The OV519 camera path becomes a practical reference for future Xbox USB device work.
