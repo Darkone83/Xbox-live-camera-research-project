@@ -95,7 +95,8 @@ The decode function is still named `Cam_DecodeJpegToYUY2()` for legacy reasons, 
 - `XCam_Shutdown()`
 - `XCam_IsStreaming()`
 - `XCam_DrawToSurface()`
-- basic detection/enumeration helpers
+
+The header also declares older detection/multi-camera helper prototypes (`XCam_IsConnected()`, `XCam_GetCount()`, `XCam_GetInfo()`, `XCam_Select()`), but the current `xb_cam.cpp` in this bundle does **not** implement those functions. Treat those declarations as stale until implementations are added or the prototypes are removed.
 
 Important current behavior: `XCam_Init()` may return `XCAM_STATUS_OK` after attempting bring-up even if streaming did not actually start. Callers should check `XCam_IsStreaming()` before treating the camera as live. A future code cleanup should make `XCam_Init()` return `XCAM_STATUS_OPEN_FAILED` if `s_streaming` is still false after bring-up.
 
@@ -133,3 +134,4 @@ Important current behavior: `XCam_Init()` may return `XCAM_STATUS_OK` after atte
 - Larger modes and alternate settings are not profiled.
 - `XCam_Init()` return semantics should be tightened if this becomes a reusable driver API.
 - Some source comments and UI labels still use legacy YUY2/RGB24/class-driver wording.
+- `xb_cam.h` declares older multi-camera helper APIs that are not implemented in the current `xb_cam.cpp`.
