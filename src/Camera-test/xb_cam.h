@@ -1,15 +1,15 @@
 /*
- * xb_cam.h -- public interface for the Xbox camera module (xbcam.cpp)
+ * xb_cam.h -- public interface for the OV519-family Xbox camera module
  * Team Resurgent / Darkone83
  *
- * The API the test harness (cameratest.cpp) links against. The harness was
- * written to a synchronous Init/Draw/Shutdown contract; the underlying driver
- * is the async USB class driver (CamAddDevice attaches on hotplug), so these
- * entry points BRIDGE the two: XCam_Init() checks whether a camera attached and
- * starts capture; XCam_DrawToSurface() copies the latest frame.
+ * Synchronous harness-facing API for the current manual USB bring-up path.
+ * XCam_Init() attempts to locate/claim a supported OV519/OV530-compatible
+ * camera, initialize the bridge/sensor, and start capture. Because the current
+ * implementation can still return OK after a late streaming failure, callers
+ * should check XCam_IsStreaming() before treating the preview as live.
  *
- * (The previous 610-line IOCTL-era interface is preserved as
- *  xb_cam.h.old_ioctl_era for reference; it described the superseded model.)
+ * XCam_DrawToSurface() copies the latest decoded MJPEG frame into the supplied
+ * D3DFMT_A8R8G8B8 texture.
  */
 #ifndef XB_CAM_H
 #define XB_CAM_H
@@ -20,7 +20,7 @@
 extern "C" {
 #endif
 
-	/* Frame geometry (default 320x240). HW: verify the OV519 delivers this. */
+	/* Current tested frame geometry. */
 #define XCAM_FRAME_W            320
 #define XCAM_FRAME_H            240
 
@@ -30,9 +30,9 @@ extern "C" {
 #define XCAM_STATUS_OPEN_FAILED  (-3)   /* attached but capture bring-up failed  */
 /* (-1 is also treated as "not found" by the harness, for compatibility.)       */
 
-	/* Optional log sink the harness registers so the (async) driver's
-	   breadcrumbs land in the same on-screen / D:\xb_cam.txt channel. Same
-	   shape as dbg.h's DbgLogFn, so XCam_SetLog(Dbg_GetSink()) just works. */
+	/* Optional log sink the harness registers so camera breadcrumbs land in the
+	   same on-screen / D:\xb_cam.txt channel. Same shape as dbg.h's DbgLogFn,
+	   so XCam_SetLog(Dbg_GetSink()) just works. */
 	typedef void (*CamLogFn)(const char* tag, const char* msg);
 	void XCam_SetLog(CamLogFn fn);
 
@@ -41,11 +41,10 @@ extern "C" {
 	int  XCam_IsStreaming(void);                        /* nonzero if streaming     */
 	int  XCam_DrawToSurface(IDirect3DTexture8* pTex);   /* copy frame -> texture; 0=ok */
 
-	/* --- detection / multi-camera enumeration --- */
-	/* A camera can be ATTACHED (seen by the framework, transient) without being a
-	   CLAIMABLE persistent device yet. IsConnected reflects attachment; GetCount
-	   is the number of claimable camera devices (each with port/VID/PID), which
-	   the harness can list and cycle through. */
+	/* --- reserved detection / multi-camera enumeration API --- */
+	/* Declarations kept for planned/future harness use. The current xb_cam.cpp
+	   implementation does not provide these helpers yet; current code uses the
+	   single active manual camera path through XCam_Init()/XCam_IsStreaming(). */
 	int  XCam_IsConnected(void);                        /* 1 if a camera is attached            */
 	int  XCam_GetCount(void);                           /* # of claimable camera devices        */
 	int  XCam_GetInfo(int index, int* port, int* vid, int* pid); /* 0=ok, -1=bad index          */
