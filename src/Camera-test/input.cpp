@@ -1,427 +1,644 @@
-﻿#include "input.h"
-#include <string.h>
+/*===========================================================================
+    cameratest.cpp -- Xbox Live Camera / EyeToy test harness
+                      Team Resurgent / Darkone83
 
-/* The camera class driver (xbcam.cpp) declares this device-type table via
-   DECLARE_XPP_TYPE(XbCameraType). We pass &XbCameraType_TABLE to XInitDevices
-   below so the framework activates the camera class driver. */
-extern "C" XPP_DEVICE_TYPE XbCameraType_TABLE;
+    A minimal RXDK diagnostic harness for the xb_cam camera interface.
+    It drives XCam_Init() / XCam_DrawToSurface() / XCam_Shutdown() and reports
+    the outcome on screen so the camera path can be exercised on real
+    hardware. This is a RESEARCH tool around a real hardware-validated path;
+    the screen output and logs show where camera bring-up, streaming, and draw
+    steps succeed or fail.
 
-#define MAX_PORTS 4
-#define ANALOG_THRESHOLD 30       // 0..255 analog-button threshold
-#define STICK_DEADZONE  8000      // stick deadzone for GetSticks()
+    Detailed per-stage logging is emitted by xb_cam.cpp via OutputDebugString
+    (visible over the debug/serial channel). This harness surfaces the final
+    XCam_Init() return code and the streaming state on screen, and draws the
+    live decoded MJPEG preview when the camera streams.
 
-static HANDLE       g_padHandles[MAX_PORTS];
-static DWORD        g_padLastPacket[MAX_PORTS];
-static XINPUT_STATE g_padStates[MAX_PORTS];
-static WORD         g_padButtons[MAX_PORTS];   // synthesized BTN_* mask
-static WORD         s_rumbleLeft = 0;         // last sent rumble values
-static WORD         s_rumbleRight = 0;
-static DWORD        s_rumbleLastMs = 0;        // GetTickCount() of last XInputSetState call
-static int          s_rumblePort = -1;        // port whose handle we call XInputSetState on
+    Controls
+    --------
+        A         Begin / retry the camera test
+        B         Exit
+        Y         Stop camera and return to idle (while previewing)
+        START     Begin / retry (same as A)
+        BACK      Exit (same as B)
 
-// Memory Unit presence — slot 0 = top (A), slot 1 = bottom (B) per port.
-// Tracked via XGetDeviceChanges bit flags — no handles opened, no data read.
-static bool g_muPresent[MAX_PORTS][2];
+    Input is read through the shared ScreenChat module (input.cpp/.h):
+    InitInput() once at startup, PumpInput() each frame, and the unified
+    BTN_* mask from GetButtons(). Edges are derived locally in ButtonEdges().
 
-// Controller model — detected at connect time via XInputGetCapabilities SubType.
-static ControllerType g_ctrlType[MAX_PORTS];
+    Camera-not-found is a first-class outcome: if XCam_Init() reports that the
+    camera could never be detected by the manual USB path, the harness shows a
+    friendly "CAMERA NOT FOUND" screen instead of a raw status dump, and offers
+    a retry. A later-stage failure still shows the technical result + return
+    code.
 
-// Active test port — which port GetButtons/GetSticks/GetTriggers read from.
-// -1 = not yet set; resolved to first connected port on first read.
-static int g_activePort = -1;
+    RXDK constraints honoured
+    -------------------------
+        - No sprintf / sscanf / strlen (small local int->text helpers instead)
+        - C89-style declaration ordering (locals declared at top of scope)
+        - file-scope statics for all persistent state
+        - no per-frame heap allocations (font + camera textures created once,
+          vertex data lives on the stack as small fixed arrays)
 
-// -----------------------------------------------------------------------------
-// InitInput
-// -----------------------------------------------------------------------------
-void InitInput()
+    Build
+    -----
+        Compiled as part of the cameratest RXDK project. Links against
+        xb_cam.cpp (the camera module under test) and input.cpp (controller
+        input). See README.md.
+===========================================================================*/
+
+#include <xtl.h>
+#include "xb_cam.h"
+#include "font.h"
+#include "dbg.h"
+#include "input.h"      /* ScreenChat unified controller module */
+
+/*---------------------------------------------------------------------------
+    xb_cam public API (matches the implementation in xb_cam.cpp).
+    Declared here so the harness does not depend on edits to xb_cam.h.
+---------------------------------------------------------------------------*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+    int  XCam_Init(DWORD dwPort);
+    void XCam_Shutdown(void);
+    int  XCam_IsStreaming(void);
+    int  XCam_DrawToSurface(IDirect3DTexture8* pTex);
+    typedef void (*CamLogFn)(const char* tag, const char* msg);
+    void XCam_SetLog(CamLogFn fn);
+#ifdef __cplusplus
+}
+#endif
+
+/*---------------------------------------------------------------------------
+    Display / layout constants
+---------------------------------------------------------------------------*/
+#define SCR_W           640
+#define SCR_H           480
+
+#define FONT_ATLAS_W    128             /* 16 glyphs across                  */
+#define FONT_ATLAS_H    32              /* 4 rows of glyphs                  */
+#define FONT_COLS       16
+
+#define TXT_SCALE       2               /* (legacy; unused with cam_font)    */
+#define TXT_SIZE        FONT_SIZE_MEDIUM  /* cam_font size for harness text  */
+#define TXT_CW          16   /* legacy; unused with cam_font */
+#define TXT_CH          16   /* legacy; unused with cam_font */
+
+/* Preview quad: 320x240 source scaled 1.5x -> 480x360, centred-ish         */
+#define CAM_TEX_W       512    /* pow2 alloc for swizzled A8R8G8B8 (uses 320) */
+#define CAM_TEX_H       256    /* pow2 alloc for swizzled A8R8G8B8 (uses 240) */
+#define CAM_VIEW_W      480
+#define CAM_VIEW_H      360
+#define CAM_VIEW_X      ((SCR_W - CAM_VIEW_W) / 2)
+#define CAM_VIEW_Y      80
+
+/* FVF codes */
+#define FVF_PC   (D3DFVF_XYZRHW | D3DFVF_DIFFUSE)
+#define FVF_PCT  (D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1)
+
+/* Colours (A8R8G8B8) */
+#define COL_BG       0xFF101418
+#define COL_PANEL    0xFF1B2230
+#define COL_TITLE    0xFFE000C8        /* Team Resurgent magenta            */
+#define COL_BRAND    0xFFB060FF        /* Darkone 83 purple                 */
+#define COL_TEXT     0xFFE6E6E6
+#define COL_DIM      0xFF8A93A0
+#define COL_OK       0xFF40D060
+#define COL_FAIL     0xFFE0503C
+#define COL_WARN     0xFFE0B040
+
+/* Harness states */
+#define ST_IDLE      0
+#define ST_RUNNING   1
+#define ST_PREVIEW   2
+#define ST_RESULT    3
+#define ST_NOTFOUND  4
+
+/*---------------------------------------------------------------------------
+    Vertex types (pre-transformed screen-space)
+---------------------------------------------------------------------------*/
+typedef struct {
+    float x, y, z, rhw;
+    DWORD color;
+} VERT_PC;
+
+typedef struct {
+    float x, y, z, rhw;
+    DWORD color;
+    float u, v;
+} VERT_PCT;
+
+/*---------------------------------------------------------------------------
+    File-scope state
+---------------------------------------------------------------------------*/
+static IDirect3D8* s_pD3D = NULL;
+static IDirect3DDevice8* s_pDev = NULL;
+static IDirect3DTexture8* s_pCamTex = NULL;
+
+static WORD                s_prevMask = 0;       /* for button edge detection */
+
+static int                 s_state = ST_IDLE;
+static int                 s_initResult = 0;       /* last XCam_Init() rc   */
+static DWORD               s_frameCount = 0;       /* preview frames drawn  */
+static BOOL                s_camTexOK = FALSE;    /* preview texture created */
+
+/*---------------------------------------------------------------------------
+    Tiny text formatting helpers (no CRT string funcs)
+---------------------------------------------------------------------------*/
+
+/* Append a NUL-terminated source onto dst at *pos, advancing *pos.          */
+static void StrAppend(char* dst, int* pos, const char* src)
 {
-    /* cameratest build: register only the device types this project uses.
-       The ScreenChat original also registered VOICE_MICROPHONE,
-       VOICE_HEADPHONE, and DEBUG_KEYBOARD, but their XDEVICE_TYPE_*_TABLE
-       symbols live in XDK voice/keyboard libraries that this project does not
-       link (they were the LNK2001 unresolved externals). cameratest needs
-       neither voice nor keyboard, so they are omitted here. GAMEPAD and
-       MEMORY_UNIT resolve from the already-linked XAPI lib.
-
-       CAMERA: our custom class driver declares its own device type
-       (XbCameraType_TABLE, via DECLARE_XPP_TYPE in xbcam.cpp). It must be passed
-       to XInitDevices here or the framework never calls the driver's CamInit /
-       CamAddDevice -- which was exactly the "no XBCAM breadcrumbs" symptom. */
-    {
-        XDEVICE_PREALLOC_TYPE types[3];
-        ZeroMemory(types, sizeof(types));
-        types[0].DeviceType = XDEVICE_TYPE_GAMEPAD;
-        types[0].dwPreallocCount = 4;
-        types[1].DeviceType = XDEVICE_TYPE_MEMORY_UNIT;
-        types[1].dwPreallocCount = 8;
-        types[2].DeviceType = &XbCameraType_TABLE;   /* our custom camera class */
-        types[2].dwPreallocCount = 1;
-        XInitDevices(3, types);
+    int i = 0;
+    while (src[i] != '\0') {
+        dst[*pos] = src[i];
+        (*pos)++;
+        i++;
     }
-    memset(g_padHandles, 0, sizeof(g_padHandles));
-    memset(g_padLastPacket, 0xFF, sizeof(g_padLastPacket)); // 0xFFFFFFFF: ensures first real packet always processes
-    memset(g_padStates, 0, sizeof(g_padStates));
-    memset(g_padButtons, 0, sizeof(g_padButtons));
-    memset(g_muPresent, 0, sizeof(g_muPresent));
-    memset(g_ctrlType, 0, sizeof(g_ctrlType));
-    g_activePort = -1;
-    s_rumbleLeft = 0;  // motors start off — no need to send a stop packet
-    s_rumbleRight = 0;
-    s_rumblePort = -1;
+    dst[*pos] = '\0';
+}
 
-    // XInitDevices queues insertion events for all devices already present at
-    // boot. Drain that initial batch now so g_muPresent is seeded correctly for
-    // MUs that were plugged in before we started. Without this, any MU already
-    // connected at boot is never seen by the change-based tracker in PumpInput,
-    // so IsMUPresent returns false for it and it never appears in the drive list.
-    {
-        DWORD ins = 0, rem = 0;
-        if (XGetDeviceChanges(XDEVICE_TYPE_MEMORY_UNIT, &ins, &rem))
-        {
-            for (int i = 0; i < MAX_PORTS; ++i)
-            {
-                DWORD maskA = 1u << i;
-                DWORD maskB = 1u << (i + 16);
-                if (ins & maskA) g_muPresent[i][0] = true;
-                if (ins & maskB) g_muPresent[i][1] = true;
-            }
-        }
+/* Append "0x" + 8 hex digits of v.                                          */
+static void StrAppendHex32(char* dst, int* pos, DWORD v)
+{
+    static const char HEX[] = "0123456789ABCDEF";
+    int i;
+    dst[(*pos)++] = '0';
+    dst[(*pos)++] = 'x';
+    for (i = 28; i >= 0; i -= 4) {
+        dst[(*pos)++] = HEX[(v >> i) & 0xF];
     }
+    dst[*pos] = '\0';
 }
 
-// -----------------------------------------------------------------------------
-// PumpInput  – reads controller state + synthesizes BTN_*
-// -----------------------------------------------------------------------------
-void PumpInput()
+/* Append unsigned decimal value v.                                          */
+static void StrAppendU32(char* dst, int* pos, DWORD v)
 {
-    DWORD ins = 0, rem = 0;
-
-    // Hotplug handling
-    if (XGetDeviceChanges(XDEVICE_TYPE_GAMEPAD, &ins, &rem))
-    {
-        for (int i = 0; i < MAX_PORTS; ++i)
-        {
-            if (ins & 1)
-            {
-                if (!g_padHandles[i])
-                {
-                    g_padHandles[i] = XInputOpen(
-                        XDEVICE_TYPE_GAMEPAD, i, XDEVICE_NO_SLOT, NULL);
-                    g_padLastPacket[i] = 0xFFFFFFFF; // ensures first packet always processes
-
-                    // Detect Duke vs Type-S via XInputGetCapabilities SubType
-                    XINPUT_CAPABILITIES caps;
-                    ZeroMemory(&caps, sizeof(caps));
-                    if (g_padHandles[i] &&
-                        XInputGetCapabilities(g_padHandles[i], &caps) == ERROR_SUCCESS)
-                    {
-                        if (caps.SubType == XINPUT_DEVSUBTYPE_GC_GAMEPAD_ALT)
-                            g_ctrlType[i] = CT_TYPE_S;
-                        else if (caps.SubType == XINPUT_DEVSUBTYPE_GC_GAMEPAD)
-                            g_ctrlType[i] = CT_DUKE;
-                        else
-                            g_ctrlType[i] = CT_UNKNOWN;  // wheel, arcade stick, etc.
-                    }
-                    else
-                    {
-                        g_ctrlType[i] = CT_UNKNOWN;
-                    }
-                    // If no active port yet, claim this one
-                    if (g_activePort < 0)
-                        g_activePort = i;
-                }
-            }
-            if (rem & 1)
-            {
-                if (g_padHandles[i])
-                {
-                    XInputClose(g_padHandles[i]);
-                    g_padHandles[i] = NULL;
-                }
-                // Zero state so GetSticks/GetTriggers don't return stale values
-                ZeroMemory(&g_padStates[i], sizeof(g_padStates[i]));
-                g_padButtons[i] = 0;
-                g_padLastPacket[i] = 0xFFFFFFFF; // ensures first packet after reconnect is always processed
-                // Reset rumble tracking so stop packet fires on reconnect
-                s_rumbleLeft = 0xFFFF;
-                s_rumbleRight = 0xFFFF;
-                if (s_rumblePort == i)
-                    s_rumblePort = -1;
-                g_ctrlType[i] = CT_UNKNOWN;
-                // If the active port disconnected, fall back to first remaining connected port
-                if (g_activePort == i)
-                {
-                    g_activePort = -1;
-                    for (int j = 0; j < MAX_PORTS; ++j)
-                    {
-                        if (g_padHandles[j]) { g_activePort = j; break; }
-                    }
-                }
-            }
-
-            ins >>= 1;
-            rem >>= 1;
-        }
-    }
-
-    // Memory Unit hotplug — presence only, no mounting.
-    // Bit layout from XGetDeviceChanges for MEMORY_UNIT:
-    //   bits  0-3:  slot A (top)    ports 0-3
-    //   bits 16-19: slot B (bottom) ports 0-3
-    if (XGetDeviceChanges(XDEVICE_TYPE_MEMORY_UNIT, &ins, &rem))
-    {
-        for (int i = 0; i < MAX_PORTS; ++i)
-        {
-            DWORD maskA = 1u << i;          // slot A bit
-            DWORD maskB = 1u << (i + 16);   // slot B bit
-            if (ins & maskA) g_muPresent[i][0] = true;
-            if (rem & maskA) g_muPresent[i][0] = false;
-            if (ins & maskB) g_muPresent[i][1] = true;
-            if (rem & maskB) g_muPresent[i][1] = false;
-        }
-    }
-
-    // Read pad states
-    for (int i = 0; i < MAX_PORTS; ++i)
-    {
-        if (!g_padHandles[i])
-        {
-            g_padButtons[i] = 0;
-            continue;
-        }
-
-        XINPUT_STATE st;
-        ZeroMemory(&st, sizeof(st));
-
-        if (XInputGetState(g_padHandles[i], &st) == ERROR_SUCCESS)
-        {
-            s_rumblePort = i;  // this handle is responsive — safe to rumble
-            g_padLastPacket[i] = st.dwPacketNumber;
-            g_padStates[i] = st;
-
-            // Standard digital bits — upper byte of wButtons is RESERVED on genuine
-            // OG Xbox hardware and must be zero.  Third-party controllers (Retrofighter
-            // and others) sometimes set upper wButtons bits for their own purposes, which
-            // would collide exactly with the BTN_* synthetic constants (0x0100-0x8000).
-            // Mask to the known-valid 8 bits only: d-pad, Start, Back, thumb clicks.
-            WORD raw_w = st.Gamepad.wButtons;
-            WORD mask = raw_w & 0x00FF;
-
-            // Analog buttons — face buttons, triggers, Black/White.
-            // Standard controllers (Duke, S) use bAnalogButtons[0-7], values 0-255.
-            // Digital-only controllers (Retrofighter) report 0 or 255 with no analog
-            // ramp.  The threshold of ANALOG_THRESHOLD handles both correctly.
-            //
-            // Belt-and-suspenders: also accept the corresponding wButtons high bits
-            // (0x1000-0x8000 for A/B/X/Y, 0x0100-0x0800 for Black/White/triggers).
-            // Some Retrofighter firmware versions put face buttons in wButtons rather
-            // than — or in addition to — bAnalogButtons.  Checking both paths means
-            // the controller works regardless of which reporting method it uses.
-            // These bits are safe to accept here because the & 0x00FF mask above has
-            // already excluded them from the base mask.
-            const BYTE* a = st.Gamepad.bAnalogButtons;
-
-            if (a[XINPUT_GAMEPAD_A] > ANALOG_THRESHOLD || (raw_w & 0x1000)) mask |= BTN_A;
-            if (a[XINPUT_GAMEPAD_B] > ANALOG_THRESHOLD || (raw_w & 0x2000)) mask |= BTN_B;
-            if (a[XINPUT_GAMEPAD_X] > ANALOG_THRESHOLD || (raw_w & 0x4000)) mask |= BTN_X;
-            if (a[XINPUT_GAMEPAD_Y] > ANALOG_THRESHOLD || (raw_w & 0x8000)) mask |= BTN_Y;
-            if (a[XINPUT_GAMEPAD_BLACK] > ANALOG_THRESHOLD || (raw_w & 0x0100)) mask |= BTN_BLACK;
-            if (a[XINPUT_GAMEPAD_WHITE] > ANALOG_THRESHOLD || (raw_w & 0x0200)) mask |= BTN_WHITE;
-            if (a[XINPUT_GAMEPAD_LEFT_TRIGGER] > ANALOG_THRESHOLD || (raw_w & 0x0400)) mask |= BTN_LTRIG;
-            if (a[XINPUT_GAMEPAD_RIGHT_TRIGGER] > ANALOG_THRESHOLD || (raw_w & 0x0800)) mask |= BTN_RTRIG;
-
-            g_padButtons[i] = mask;
-        }
-        else
-        {
-            // Disconnect or read error — zero everything so callers don't
-            // see stale stick/trigger values from the last good packet
-            ZeroMemory(&g_padStates[i], sizeof(g_padStates[i]));
-            g_padButtons[i] = 0;
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-// GetButtons – returns synthesized unified mask from the active port
-// -----------------------------------------------------------------------------
-WORD GetButtons()
-{
-    if (g_activePort < 0 || !g_padHandles[g_activePort]) return 0;
-    return g_padButtons[g_activePort];
-}
-
-WORD GetButtonsForPort(int port)
-{
-    if (port < 0 || port >= MAX_PORTS || !g_padHandles[port]) return 0;
-    return g_padButtons[port];
-}
-
-// -----------------------------------------------------------------------------
-// GetSticks – returns left/right analog sticks (with deadzones) from active port
-// -----------------------------------------------------------------------------
-static void get_sticks_for_port_internal(int port, int& lx, int& ly, int& rx, int& ry)
-{
-    lx = ly = rx = ry = 0;
-    if (port < 0 || port >= MAX_PORTS || !g_padHandles[port]) return;
-
-    const XINPUT_GAMEPAD& gp = g_padStates[port].Gamepad;
-    lx = gp.sThumbLX;
-    ly = gp.sThumbLY;
-    rx = gp.sThumbRX;
-    ry = gp.sThumbRY;
-
-    // Deadzone filtering
-    if (abs(lx) < STICK_DEADZONE) lx = 0;
-    if (abs(ly) < STICK_DEADZONE) ly = 0;
-    if (abs(rx) < STICK_DEADZONE) rx = 0;
-    if (abs(ry) < STICK_DEADZONE) ry = 0;
-}
-
-void GetSticks(int& lx, int& ly, int& rx, int& ry)
-{
-    get_sticks_for_port_internal(g_activePort, lx, ly, rx, ry);
-}
-
-void GetSticksForPort(int port, int& lx, int& ly, int& rx, int& ry)
-{
-    get_sticks_for_port_internal(port, lx, ly, rx, ry);
-}
-
-// -----------------------------------------------------------------------------
-// GetRawSticks – returns unfiltered stick values (no deadzone applied).
-// Used by the drift test in ControllerTest so it can detect sub-deadzone drift.
-// -----------------------------------------------------------------------------
-void GetRawSticks(int& lx, int& ly, int& rx, int& ry)
-{
-    lx = ly = rx = ry = 0;
-    if (g_activePort < 0 || !g_padHandles[g_activePort]) return;
-
-    const XINPUT_GAMEPAD& gp = g_padStates[g_activePort].Gamepad;
-    lx = gp.sThumbLX;
-    ly = gp.sThumbLY;
-    rx = gp.sThumbRX;
-    ry = gp.sThumbRY;
-}
-// -----------------------------------------------------------------------------
-// GetTriggers – returns raw 0..255 analog values for all analog buttons
-// from the active port. Includes triggers, Black/White, and face buttons.
-// -----------------------------------------------------------------------------
-void GetTriggers(int& lt, int& rt, int& black, int& white,
-    int& btnA, int& btnB, int& btnX, int& btnY)
-{
-    lt = rt = black = white = btnA = btnB = btnX = btnY = 0;
-    if (g_activePort < 0 || !g_padHandles[g_activePort]) return;
-
-    const BYTE* a = g_padStates[g_activePort].Gamepad.bAnalogButtons;
-    lt = a[XINPUT_GAMEPAD_LEFT_TRIGGER];
-    rt = a[XINPUT_GAMEPAD_RIGHT_TRIGGER];
-    black = a[XINPUT_GAMEPAD_BLACK];
-    white = a[XINPUT_GAMEPAD_WHITE];
-    btnA = a[XINPUT_GAMEPAD_A];
-    btnB = a[XINPUT_GAMEPAD_B];
-    btnX = a[XINPUT_GAMEPAD_X];
-    btnY = a[XINPUT_GAMEPAD_Y];
-}
-
-// -----------------------------------------------------------------------------
-// IsPortConnected – returns true if a controller handle is open on this port
-// -----------------------------------------------------------------------------
-bool IsPortConnected(int port)
-{
-    if (port < 0 || port >= MAX_PORTS) return false;
-    return g_padHandles[port] != NULL;
-}
-
-// -----------------------------------------------------------------------------
-// IsMUPresent – returns true if a Memory Unit is present on port/slot.
-//   Tracked via XGetDeviceChanges flags — no handle opened, no data read.
-//   slot 0 = top slot (A), slot 1 = bottom slot (B)
-// -----------------------------------------------------------------------------
-bool IsMUPresent(int port, int slot)
-{
-    if (port < 0 || port >= MAX_PORTS) return false;
-    if (slot < 0 || slot > 1) return false;
-    return g_muPresent[port][slot];
-}
-
-// -----------------------------------------------------------------------------
-// SetRumble – drives left (low-freq) and right (high-freq) motors
-// Only calls XInputSetState on the one port that last returned a successful
-// XInputGetState — avoids blocking on a stale/bad handle.  Two guards:
-//   1. Value change guard — skip if nothing changed
-//   2. 100ms cooldown  — skip if last send was too recent
-// -----------------------------------------------------------------------------
-void SetRumble(WORD left, WORD right)
-{
-    if (left == s_rumbleLeft && right == s_rumbleRight)
+    char tmp[12];
+    int  n = 0;
+    int  i;
+    if (v == 0) {
+        dst[(*pos)++] = '0';
+        dst[*pos] = '\0';
         return;
-
-    if (s_rumblePort < 0 || !g_padHandles[s_rumblePort])
-        return;  // no known-good handle — don't risk a blocking call
-
-    DWORD now = GetTickCount();
-    if (now - s_rumbleLastMs < 100)
-        return;  // cooldown
-
-    // hEvent = NULL: XInputSetState is synchronous. On OG Xbox hardware this
-    // completes in ~1ms (one USB full-speed frame). With the 100ms cooldown
-    // above, this is at most 10 calls/sec — negligible overhead.
-    // DO NOT use CreateEvent/CloseHandle here: closing the event handle while
-    // the USB IRP still references it causes a kernel use-after-free crash.
-    static XINPUT_FEEDBACK fb;
-    ZeroMemory(&fb, sizeof(fb));
-    fb.Rumble.wLeftMotorSpeed = left;
-    fb.Rumble.wRightMotorSpeed = right;
-    XInputSetState(g_padHandles[s_rumblePort], &fb);
-
-    s_rumbleLeft = left;
-    s_rumbleRight = right;
-    s_rumbleLastMs = now;
-}
-
-// -----------------------------------------------------------------------------
-// GetControllerType – returns cached model detected at connect time
-// -----------------------------------------------------------------------------
-ControllerType GetControllerType(int port)
-{
-    if (port < 0 || port >= MAX_PORTS) return CT_UNKNOWN;
-    return g_ctrlType[port];
-}
-
-// -----------------------------------------------------------------------------
-// Active port API
-// -----------------------------------------------------------------------------
-int GetActivePort()
-{
-    return g_activePort;
-}
-
-void SetActivePort(int port)
-{
-    if (port < 0 || port >= MAX_PORTS) return;
-    if (!g_padHandles[port]) return;  // no controller here — ignore
-    g_activePort = port;
-}
-
-void StepActivePort(int dir)
-{
-    // Count connected ports — need at least 2 to be worth stepping
-    int count = 0;
-    for (int i = 0; i < MAX_PORTS; ++i)
-        if (g_padHandles[i]) ++count;
-    if (count < 2) return;
-
-    // Walk in the requested direction, wrapping, until we find a connected port
-    int start = (g_activePort >= 0) ? g_activePort : 0;
-    int cur = start;
-    for (int step = 0; step < MAX_PORTS; ++step)
-    {
-        cur = (cur + dir + MAX_PORTS) % MAX_PORTS;
-        if (g_padHandles[cur])
-        {
-            g_activePort = cur;
-            return;
-        }
     }
+    while (v > 0 && n < 11) {
+        tmp[n++] = (char)('0' + (v % 10));
+        v /= 10;
+    }
+    for (i = n - 1; i >= 0; i--) {
+        dst[(*pos)++] = tmp[i];
+    }
+    dst[*pos] = '\0';
+}
+
+/*===========================================================================
+    Font atlas construction
+    Builds a 128x32 linear ARGB texture from the embedded 8x8 font. White
+    opaque where a glyph bit is set, fully transparent elsewhere.
+===========================================================================*/
+static HRESULT BuildFontTexture(void)
+{
+    /* cam_font owns the atlas now; just initialise it. */
+    return Font_Init(s_pDev) ? D3D_OK : E_FAIL;
+}
+
+/*===========================================================================
+    Primitive drawing
+===========================================================================*/
+static void DrawSolidRect(int x, int y, int w, int h, DWORD color)
+{
+    VERT_PC v[4];
+    float   fx = (float)x;
+    float   fy = (float)y;
+    float   fw = (float)(x + w);
+    float   fh = (float)(y + h);
+
+    v[0].x = fx; v[0].y = fy; v[0].z = 0.0f; v[0].rhw = 1.0f; v[0].color = color;
+    v[1].x = fw; v[1].y = fy; v[1].z = 0.0f; v[1].rhw = 1.0f; v[1].color = color;
+    v[2].x = fx; v[2].y = fh; v[2].z = 0.0f; v[2].rhw = 1.0f; v[2].color = color;
+    v[3].x = fw; v[3].y = fh; v[3].z = 0.0f; v[3].rhw = 1.0f; v[3].color = color;
+
+    s_pDev->SetTexture(0, NULL);
+    s_pDev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2); /* diffuse */
+    s_pDev->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+    s_pDev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+    s_pDev->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
+    s_pDev->SetVertexShader(FVF_PC);
+    s_pDev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, v, sizeof(VERT_PC));
+}
+
+/* Draw a textured quad from the camera preview texture. */
+static void DrawCamQuad(int x, int y, int w, int h)
+{
+    VERT_PCT v[4];
+    float    fx = (float)x;
+    float    fy = (float)y;
+    float    fw = (float)(x + w);
+    float    fh = (float)(y + h);
+
+    float um = (float)XCAM_FRAME_W / (float)CAM_TEX_W;   /* 320/512 */
+    float vm = (float)XCAM_FRAME_H / (float)CAM_TEX_H;   /* 240/256 */
+    v[0].x = fx; v[0].y = fy; v[0].z = 0.0f; v[0].rhw = 1.0f; v[0].color = 0xFFFFFFFF; v[0].u = 0.0f; v[0].v = 0.0f;
+    v[1].x = fw; v[1].y = fy; v[1].z = 0.0f; v[1].rhw = 1.0f; v[1].color = 0xFFFFFFFF; v[1].u = um;   v[1].v = 0.0f;
+    v[2].x = fx; v[2].y = fh; v[2].z = 0.0f; v[2].rhw = 1.0f; v[2].color = 0xFFFFFFFF; v[2].u = 0.0f; v[2].v = vm;
+    v[3].x = fw; v[3].y = fh; v[3].z = 0.0f; v[3].rhw = 1.0f; v[3].color = 0xFFFFFFFF; v[3].u = um;   v[3].v = vm;
+
+    /* Colour comes from the decoded A8R8G8B8 texture; alpha comes from diffuse
+       (opaque) so the preview cannot be blended away by source alpha quirks. */
+    s_pDev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1); /* texture */
+    s_pDev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    s_pDev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2); /* diffuse */
+    s_pDev->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
+    s_pDev->SetTexture(0, s_pCamTex);
+    s_pDev->SetVertexShader(FVF_PCT);
+    s_pDev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, v, sizeof(VERT_PCT));
+    s_pDev->SetTexture(0, NULL);
+}
+
+/* Draw one glyph quad from the font atlas, tinted by color. */
+
+
+/* Draw an ASCII string. Lowercase folded to uppercase (font is 0x20..0x5F). */
+static void DrawText(int x, int y, const char* sz, DWORD color)
+{
+    /* forwards to cam_font (ScreenChat renderer). Handles embedded
+       newlines the way the old monospace path did. */
+    char  line[128];
+    int   li = 0;
+    int   cy = y;
+    int   i = 0;
+    char  c;
+    int   lh = Font_GlyphHeight(TXT_SIZE) + 4;
+    for (;;) {
+        c = sz[i];
+        if (c == '\n' || c == '\0') {
+            line[li] = '\0';
+            if (li > 0)
+                Font_DrawText(s_pDev, (float)x, (float)cy, line, TXT_SIZE, color, 0);
+            li = 0;
+            cy += lh;
+            if (c == '\0') break;
+        }
+        else if (li < 127) {
+            line[li++] = c;
+        }
+        i++;
+    }
+}
+
+/*===========================================================================
+    Render state setup for 2D overlay (alpha-blended, point-sampled text)
+===========================================================================*/
+static void Setup2DStates(void)
+{
+    s_pDev->SetRenderState(D3DRS_ZENABLE, FALSE);
+    s_pDev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    s_pDev->SetRenderState(D3DRS_LIGHTING, FALSE);
+    s_pDev->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+    s_pDev->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+    s_pDev->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+    s_pDev->SetRenderState(D3DRS_YUVENABLE, FALSE);
+
+    /* Colour/alpha ops are set per-primitive (solid=diffuse, text=modulate,
+       cam=texture). Here we only set the shared sampler + addressing.      */
+    s_pDev->SetTextureStageState(0, D3DTSS_MAGFILTER, D3DTEXF_POINT);
+    s_pDev->SetTextureStageState(0, D3DTSS_MINFILTER, D3DTEXF_POINT);
+    s_pDev->SetTextureStageState(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
+    s_pDev->SetTextureStageState(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
+}
+
+/*===========================================================================
+    Screen layouts
+===========================================================================*/
+static void DrawHeader(void)
+{
+    DrawSolidRect(0, 0, SCR_W, 40, COL_PANEL);
+    DrawText(16, 10, "** XBOX CAMERA TEST **", COL_TITLE);
+    DrawText(SCR_W - 16 - 10 * TXT_CW, 10, "DARKONE83", COL_BRAND);
+}
+
+static void DrawFooter(const char* hints)
+{
+    DrawSolidRect(0, SCR_H - 32, SCR_W, 32, COL_PANEL);
+    DrawText(16, SCR_H - 24, hints, COL_DIM);
+}
+
+static void DrawIdle(void)
+{
+    DrawHeader();
+    DrawText(40, 90, "RESEARCH HARNESS - XB_CAM INTERFACE", COL_TEXT);
+    DrawText(40, 130, "TARGET: SONY EYETOY  054C:0155", COL_BRAND);
+    DrawText(40, 154, "  (XBOX LIVE CAM 045E:028C ALSO OK)", COL_DIM);
+    DrawText(40, 200, "THIS WILL ATTEMPT THE FULL INIT", COL_TEXT);
+    DrawText(40, 224, "SEQUENCE AND OPEN A LIVE PREVIEW.", COL_TEXT);
+    DrawText(40, 270, "STAGE DETAIL IS LOGGED OVER THE", COL_DIM);
+    DrawText(40, 294, "DEBUG/SERIAL CHANNEL VIA", COL_DIM);
+    DrawText(40, 318, "OUTPUTDEBUGSTRING.", COL_DIM);
+    DrawText(40, 380, "PRESS A TO BEGIN", COL_OK);
+    DrawFooter("A=BEGIN   B=EXIT");
+}
+
+static void DrawRunning(void)
+{
+    DrawHeader();
+    DrawText(40, 200, "DETECTING CAMERA...", COL_WARN);
+    DrawText(40, 240, "PLEASE WAIT", COL_DIM);
+    DrawFooter("WORKING...");
+}
+
+/* Friendly graceful-failure screen: no camera detected at all. */
+static void DrawNotFound(void)
+{
+    DrawHeader();
+    DrawText(40, 110, "CAMERA NOT FOUND", COL_FAIL);
+    DrawText(40, 160, "NO EYETOY DETECTED.", COL_TEXT);
+
+    DrawText(40, 210, "CHECK:", COL_DIM);
+    DrawText(40, 234, "- EYETOY PLUGGED INTO A CONTROLLER PORT", COL_DIM);
+    DrawText(40, 258, "- TRY A DIFFERENT PORT", COL_DIM);
+    DrawText(40, 282, "- USBCAMD DRIVER PRESENT ON THIS DASH", COL_DIM);
+    DrawText(40, 306, "- EYETOY ENUMERATES AS VIDEO-ONLY", COL_DIM);
+
+    DrawText(40, 400, "PRESS A TO RETRY", COL_OK);
+    DrawFooter("A=RETRY   B=EXIT");
+}
+
+static void DrawResult(void)
+{
+    char line[96];
+    int  pos = 0;
+
+    DrawHeader();
+    DrawText(40, 90, "CAMERA INIT FAILED", COL_FAIL);
+
+    pos = 0;
+    StrAppend(line, &pos, "RETURN CODE: ");
+    StrAppendHex32(line, &pos, (DWORD)s_initResult);
+    DrawText(40, 140, line, COL_TEXT);
+
+    DrawText(40, 190, "CAMERA WAS DETECTED BUT A LATER", COL_DIM);
+    DrawText(40, 214, "BRING-UP STAGE FAILED:", COL_DIM);
+    DrawText(40, 250, "- DEVICE OPEN (NTOPENFILE)", COL_DIM);
+    DrawText(40, 274, "- SET FORMAT (IOCTL 0X101)", COL_DIM);
+    DrawText(40, 298, "- START STREAM (IOCTL 0X107)", COL_DIM);
+
+    DrawText(40, 340, "SEE DEBUG OUTPUT FOR THE STAGE", COL_DIM);
+    DrawText(40, 364, "THAT FAILED.", COL_DIM);
+
+    DrawText(40, 400, "PRESS A TO RETRY", COL_OK);
+    DrawFooter("A=RETRY   B=EXIT");
+}
+
+static void DrawPreview(void)
+{
+    char line[96];
+    int  pos;
+
+    DrawHeader();
+
+    /* Preview frame border + image */
+    DrawSolidRect(CAM_VIEW_X - 2, CAM_VIEW_Y - 2, CAM_VIEW_W + 4, CAM_VIEW_H + 4, COL_BRAND);
+    if (s_camTexOK)
+        DrawCamQuad(CAM_VIEW_X, CAM_VIEW_Y, CAM_VIEW_W, CAM_VIEW_H);
+    else
+        DrawSolidRect(CAM_VIEW_X, CAM_VIEW_Y, CAM_VIEW_W, CAM_VIEW_H, 0xFF000000);
+
+    DrawText(CAM_VIEW_X, 52, "LIVE PREVIEW  320X240 MJPEG", COL_TEXT);
+
+    pos = 0;
+    StrAppend(line, &pos, "STREAMING: ");
+    StrAppend(line, &pos, XCam_IsStreaming() ? "YES" : "NO");
+    DrawText(40, CAM_VIEW_Y + CAM_VIEW_H + 16, line, COL_OK);
+
+    pos = 0;
+    StrAppend(line, &pos, "FRAMES DRAWN: ");
+    StrAppendU32(line, &pos, s_frameCount);
+    DrawText(40, CAM_VIEW_Y + CAM_VIEW_H + 40, line, COL_DIM);
+
+    if (!s_camTexOK)
+        DrawText(40, CAM_VIEW_Y + CAM_VIEW_H + 64, "WARN: PREVIEW TEXTURE NOT CREATED", COL_FAIL);
+
+    DrawFooter("Y=STOP   B=EXIT");
+}
+
+/*===========================================================================
+    Input -- driven by the ScreenChat input module (input.cpp/.h).
+    InitInput() registers all device types (gamepad + MU + voice) and must be
+    called once at startup; PumpInput() is called once per frame. GetButtons()
+    returns the held BTN_* mask for the active port; we derive press edges.
+===========================================================================*/
+
+/* Returns the buttons newly pressed since the previous frame. Call once per
+   frame, after PumpInput().                                                 */
+static WORD ButtonEdges(void)
+{
+    WORD mask = GetButtons();
+    WORD pressed = (WORD)(mask & ~s_prevMask);
+    s_prevMask = mask;
+    return pressed;
+}
+
+/*===========================================================================
+    Camera lifecycle helpers
+===========================================================================*/
+static void BeginCameraTest(void)
+{
+    HRESULT hr;
+
+    s_frameCount = 0;
+    s_state = ST_RUNNING;
+
+    /* Draw one "initialising" frame so the user sees feedback before the
+       (potentially blocking) init call. */
+    s_pDev->Clear(0, NULL, D3DCLEAR_TARGET, COL_BG, 1.0f, 0);
+    s_pDev->BeginScene();
+    Setup2DStates();
+    DrawRunning();
+    s_pDev->EndScene();
+    s_pDev->Present(NULL, NULL, NULL, NULL);
+
+    /* Lazily create the A8R8G8B8 preview texture once. */
+    if (s_pCamTex == NULL) {
+        /* Swizzled A8R8G8B8 uses power-of-2 dims here; alloc 512x256 and use
+           only the top-left 320x240. xb_cam swizzles the frame in via
+           XGSwizzleRect. */
+        hr = s_pDev->CreateTexture(CAM_TEX_W, CAM_TEX_H, 1, 0,
+            D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &s_pCamTex);
+        s_camTexOK = SUCCEEDED(hr);
+        if (!s_camTexOK)
+            s_pCamTex = NULL;
+    }
+
+    s_initResult = XCam_Init(0);
+
+    if (s_initResult == 0) {
+        s_state = ST_PREVIEW;
+        Dbg_Log("HARNESS", "XCam_Init OK, entering preview");
+    }
+    else if ((s_initResult == -1 ||
+        s_initResult == (int)XCAM_STATUS_NO_DEVICE) &&
+        !XCam_IsStreaming()) {
+        /* The camera could not be found at all by the manual USB path. We also
+           confirm the stream never started, so a rare post-start failure that returns
+           -1 is not misreported as "not found".) Fail gracefully with a
+           friendly message rather than a raw NTSTATUS dump.                  */
+        s_state = ST_NOTFOUND;
+        Dbg_Log("HARNESS", "camera not found");
+    }
+    else {
+        /* Camera was seen but a later bring-up stage failed (open / format /
+           start). Show the technical result so the stage can be diagnosed.   */
+        s_state = ST_RESULT;
+        Dbg_Log("HARNESS", "XCam_Init failed (post-detect)");
+    }
+}
+
+static void StopCameraTest(void)
+{
+    XCam_Shutdown();
+    s_state = ST_IDLE;
+    Dbg_Log("HARNESS", "camera stopped");
+}
+
+/*===========================================================================
+    D3D setup / teardown
+===========================================================================*/
+static BOOL InitD3D(void)
+{
+    D3DPRESENT_PARAMETERS pp;
+    HRESULT               hr;
+
+    s_pD3D = Direct3DCreate8(D3D_SDK_VERSION);
+    if (s_pD3D == NULL)
+        return FALSE;
+
+    memset(&pp, 0, sizeof(pp));
+    pp.BackBufferWidth = SCR_W;
+    pp.BackBufferHeight = SCR_H;
+    pp.BackBufferFormat = D3DFMT_X8R8G8B8;
+    pp.BackBufferCount = 1;
+    pp.EnableAutoDepthStencil = FALSE;
+    pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
+    pp.FullScreen_PresentationInterval = D3DPRESENT_INTERVAL_ONE;
+
+    hr = s_pD3D->CreateDevice(0, D3DDEVTYPE_HAL, NULL,
+        D3DCREATE_HARDWARE_VERTEXPROCESSING,
+        &pp, &s_pDev);
+    if (FAILED(hr))
+        return FALSE;
+
+    hr = BuildFontTexture();
+    if (FAILED(hr))
+        return FALSE;
+
+    return TRUE;
+}
+
+static void ShutdownD3D(void)
+{
+    if (s_pCamTex) { s_pCamTex->Release();  s_pCamTex = NULL; }
+    Font_Shutdown();
+    if (s_pDev) { s_pDev->Release();     s_pDev = NULL; }
+    if (s_pD3D) { s_pD3D->Release();     s_pD3D = NULL; }
+}
+
+/*===========================================================================
+    Per-state rendering dispatch
+===========================================================================*/
+static void RenderFrame(void)
+{
+    s_pDev->Clear(0, NULL, D3DCLEAR_TARGET, COL_BG, 1.0f, 0);
+    s_pDev->BeginScene();
+    Setup2DStates();
+
+    switch (s_state) {
+    case ST_IDLE:     DrawIdle();     break;
+    case ST_PREVIEW:  DrawPreview();  break;
+    case ST_RESULT:   DrawResult();   break;
+    case ST_NOTFOUND: DrawNotFound(); break;
+    default:          DrawRunning();  break;
+    }
+
+    /* On-screen debug log overlay, lower-right, just above the footer bar
+       (the only readable debug channel on a modchipped retail box). */
+    if (s_state == ST_RESULT || s_state == ST_NOTFOUND || s_state == ST_RUNNING)
+        Dbg_DrawCorner(s_pDev, (float)(SCR_W - 16), (float)(SCR_H - 40), FONT_SIZE_SMALL);
+
+    s_pDev->EndScene();
+    s_pDev->Present(NULL, NULL, NULL, NULL);
+}
+
+/*===========================================================================
+    Entry point
+===========================================================================*/
+void __cdecl main(void)
+{
+    WORD press;
+    BOOL running = TRUE;
+
+    /* Logger + driver sink FIRST -- InitInput() calls XInitDevices, which is when
+       the driver's CamInit (registration) AND the initial CamAddDevice for an
+       already-connected camera fire. If we wire the sink after InitInput, those
+       early breadcrumbs are emitted into a NULL sink and lost -- exactly the
+       diagnostics we need. So set up logging before InitInput. */
+    Dbg_Init();                         /* on-screen + D:\xb_cam.txt logger    */
+    XCam_SetLog(Dbg_GetSink());         /* driver logs into the same sink      */
+    Dbg_Log("HARNESS", "boot: log up, calling InitInput (XInitDevices)");
+
+    InitInput();        /* registers device types + opens already-present pads */
+    Dbg_Log("HARNESS", "boot: InitInput returned");
+
+    if (!InitD3D()) {
+        /* Nothing we can draw to; bail out. */
+        ShutdownD3D();
+        return;
+    }
+
+    while (running) {
+        PumpInput();             /* refresh controller state (hotplug + reads) */
+        press = ButtonEdges();   /* buttons newly pressed this frame           */
+
+        switch (s_state) {
+        case ST_IDLE:
+            if (press & (BTN_A | BTN_START))
+                BeginCameraTest();
+            else if (press & (BTN_B | BTN_BACK))
+                running = FALSE;
+            break;
+
+        case ST_PREVIEW:
+            if (s_camTexOK)
+                XCam_DrawToSurface(s_pCamTex);
+            s_frameCount++;
+            if (press & BTN_Y)
+                StopCameraTest();
+            else if (press & (BTN_B | BTN_BACK)) {
+                StopCameraTest();
+                running = FALSE;
+            }
+            break;
+
+        case ST_RESULT:
+        case ST_NOTFOUND:
+            if (press & (BTN_A | BTN_START))
+                BeginCameraTest();
+            else if (press & (BTN_B | BTN_BACK))
+                running = FALSE;
+            break;
+
+        default:
+            break;
+        }
+
+        if (running)
+            RenderFrame();
+    }
+
+    /* Clean up */
+    if (XCam_IsStreaming())
+        XCam_Shutdown();
+    Dbg_Shutdown();
+    ShutdownD3D();
 }
