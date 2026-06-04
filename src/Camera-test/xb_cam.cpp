@@ -1,19 +1,20 @@
 /*===========================================================================
-    xb_cam.cpp -- Xbox USB camera driver  (detect + FRAME PULL attempt)
+    xb_cam.cpp -- OV519-family USB camera module for original Xbox
                   Team Resurgent / Darkone83
 
-    Detection works (active g_DeviceTree walk, base @ CDeviceTree+0xE0). This
-    build then attempts the iso streaming bring-up on the detected device via
-    the proven lock-proof transfer path (NULL completion + poll Hdr.Status):
+    This module owns the camera path manually rather than relying on a normal
+    runtime class-driver attach. It walks the Xbox USB device tree, claims the
+    target OV519/OV530-compatible camera node, initializes the bridge/sensor,
+    opens the isochronous IN endpoint, assembles OV519 MJPEG frames, decodes
+    them with picojpeg, and pushes the decoded 320x240 image into a swizzled
+    A8R8G8B8 preview texture.
 
-        SET_INTERFACE(alt 1)  -> ISOCH_OPEN_ENDPOINT(ep 0x81)
-        -> ISOCH_ATTACH_BUFFER -> ISOCH_START_TRANSFER
+    The validated stream path is endpoint 0x81 with alt 3 / maxpkt 768 on the
+    tested hardware, but the code also parses descriptors and falls back to the
+    largest available isochronous IN endpoint when needed.
 
-    Every step logs its USBD status so we see exactly how far the iso pipe comes
-    up. DrawToSurface blits the iso buffer into the preview texture (raw copy for
-    now -- if pixels move off solid pink, data is flowing).
-
-    All transfers MmIsAddressValid-gated and polled -> no faults / soft-locks.
+    All control transfers are MmIsAddressValid-gated and polled to avoid the
+    lockups seen with the earlier callback/event experiments.
 ===========================================================================*/
 
 #include <xtl.h>
@@ -34,9 +35,9 @@
 #define CAM_USBD_PENDING     0x40000000u
 
 #define CAM_ISO_EP           0x81
-#define CAM_ISO_MAXPKT       1023          /* full-speed iso max; guess for alt 1 */
+#define CAM_ISO_MAXPKT       1023          /* full-speed iso upper bound; endpoint maxpkt is discovered */
 #define CAM_ISO_FRAMES       8
-#define CAM_FRAME_BYTES      (XCAM_FRAME_W * XCAM_FRAME_H * 3)   /* RGB24 320x240 */
+#define CAM_FRAME_BYTES      (XCAM_FRAME_W * XCAM_FRAME_H * 3)   /* legacy sizing constant */
 
 /*---------------------------------------------------------------------------
     State
@@ -56,10 +57,10 @@ static int          s_isoBufLen = 0;
 
 /* OV519 frame assembly: image data spans ~25 iso buffers, delimited by SOF/EOF
    headers. Accumulate into s_frame; on EOF publish to s_frameReady. */
-#define CAM_YUY2_BYTES   (XCAM_FRAME_W * XCAM_FRAME_H * 2)   /* legacy */
+#define CAM_YUY2_BYTES   (XCAM_FRAME_W * XCAM_FRAME_H * 2)   /* legacy capacity baseline */
 #define CAM_TEX_W        512                                /* pow2 texture (uses 320) */
 #define CAM_TEX_H        256                                /* pow2 texture (uses 240) */
-#define CAM_ARGB_BYTES   (CAM_TEX_W * CAM_TEX_H * 4)         /* full BGRA texture buffer */
+#define CAM_ARGB_BYTES   (CAM_TEX_W * CAM_TEX_H * 4)         /* full 4-byte texture buffer */
 #define CAM_FRAME_CAP    (CAM_YUY2_BYTES + 8192)             /* slack for header/overrun */
 static unsigned char* s_frame = 0;   /* accumulator */
 static int            s_frameW = 0;   /* write cursor */
@@ -74,7 +75,7 @@ static unsigned char* s_jpegBuf = 0;     /* private copy decoded each draw */
 static const unsigned char* s_jpgPtr = 0; /* feed cursor */
 static int            s_jpgRem = 0;     /* feed remaining */
 static int            s_lastDecoded = -1;  /* s_completedFrames last decoded */
-static unsigned char* s_rgb = 0;     /* decoded BGRA frame (pitch = W*4) */
+static unsigned char* s_rgb = 0;     /* decoded 4-byte frame buffer (pitch = CAM_TEX_W*4) */
 
 static void Cam_Log(const char* msg)
 {
@@ -362,12 +363,12 @@ static ULONG Cam_I2cR(IUsbDevice* dev, int reg, unsigned char* out)
     return st;
 }
 
-/* Vid320RGB24 (alt 3) bridge frame-size/window regs -- THE missing geometry */
+/* 320x240 bridge frame-size/window regs (table label retained from OV519 refs) */
 static const unsigned char k_usb320[] = {
     0x10,0x14,0xff, 0x11,0x1e,0xff, 0x12,0x00,0xff, 0x13,0x00,0xff, 0x14,0x00,0xff,
     0x15,0x00,0xff, 0x16,0x00,0xff, 0x25,0x01,0xff, 0x26,0x00,0xff
 };
-/* Vid320RGB24 sensor regs (Index,Value,Mask) */
+/* 320x240 sensor regs (Index,Value,Mask; table label retained from OV519 refs) */
 static const unsigned char k_cam320[] = {
     0x2b,0x00,0xff, 0x14,0xa4,0xff, 0x11,0x01,0xff, 0x28,0x00,0x20, 0x24,0x20,0xff,
     0x25,0x30,0xff, 0x2d,0xd5,0x40, 0x67,0xb0,0xf0, 0x74,0x20,0xff, 0x75,0x00,0x01
@@ -1028,8 +1029,10 @@ static unsigned char Cam_JpgFeed(unsigned char* pBuf, unsigned char bufSize,
 /* clamp helper */
 static unsigned char Cam_Clamp8(int v) { if (v < 0) return 0; if (v > 255) return 255; return (unsigned char)v; }
 
-/* Decode the current JPEG frame (s_jpegBuf, len) into the persistent BGRA buffer
-   s_rgb (pitch = W*4). Byte order B,G,R,A matches D3DFMT_A8R8G8B8 on Xbox. */
+/* Decode the current JPEG frame (s_jpegBuf, len) into the persistent 4-byte
+   texture source buffer s_rgb (pitch = CAM_TEX_W*4). The function name is
+   legacy from the earlier YUY2 experiment; the current output path feeds a
+   swizzled D3DFMT_A8R8G8B8 texture. */
 static int Cam_DecodeJpegToYUY2(int jlen)
 {
     pjpeg_image_info_t info;
@@ -1120,7 +1123,7 @@ static int Cam_DecodeJpegToYUY2(int jlen)
     return 0;
 }
 
-/* blit the latest decoded frame into the YUY2 preview texture EVERY call */
+/* Blit the latest decoded frame into the A8R8G8B8 preview texture every call. */
 extern "C" int XCam_DrawToSurface(IDirect3DTexture8* pTex)
 {
     D3DLOCKED_RECT lr;
@@ -1144,10 +1147,10 @@ extern "C" int XCam_DrawToSurface(IDirect3DTexture8* pTex)
         }
     }
 
-    /* Push s_rgb (BGRA) to the texture. The cam texture is now a swizzled
+    /* Push s_rgb to the texture. The cam texture is a swizzled
        D3DFMT_A8R8G8B8 surface (same proven path as the on-screen font), so we
-       XGSwizzleRect the linear frame in. bpp=4. Texture is pow2 (512x256); we
-       fill only the top-left 320x240. */
+       XGSwizzleRect the linear 4-byte source buffer in. Texture is pow2
+       (512x256); only the top-left 320x240 contains the image. */
     {
         D3DSURFACE_DESC desc;
         if (FAILED(pTex->GetLevelDesc(0, &desc))) return -1;
