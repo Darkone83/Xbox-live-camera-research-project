@@ -5,7 +5,7 @@ A homebrew RXDK test app and USB camera driver for **OV519-family cameras on the
 - **Sony EyeToy / OV519 + OV7648 path** — tested VID/PID: `054C:0155`
 - **Microsoft Xbox camera path** — accepted VID/PID in code: `045E:028C`
 
-The driver manually brings up the camera on real Xbox hardware, initializes the OV519 bridge and OV76xx sensor path, streams **MJPEG** over a USB isochronous IN endpoint, decodes frames in software with picojpeg, and displays the live image through a swizzled `D3DFMT_A8R8G8B8` texture. Logging is mirrored to the screen and `D:\xb_cam.txt` for crash-survivable debugging.
+The driver manually brings up the camera on real Xbox hardware, initializes the OV519 bridge and OV7xx0 sensor path, streams **MJPEG** over a USB isochronous IN endpoint, decodes frames in software with picojpeg, and displays the live image through a swizzled `D3DFMT_A8R8G8B8` texture. Logging is mirrored to the screen and `D:\xb_cam.txt` for crash-survivable debugging.
 
 > **STATUS: WORKING ON HARDWARE.** A recognizable 320×240 image streams from a real EyeToy on a retail original Xbox. This is chipset-specific OV519-family support, not generic UVC webcam support.
 
@@ -27,7 +27,7 @@ The validated EyeToy path uses **manual USB bring-up** rather than relying on a 
 8. Allocate a USB address, send `SET_ADDRESS`, then close/reopen EP0.
 9. Send `SET_CONFIGURATION(1)`.
 10. Parse the config descriptor for an iso IN endpoint.
-11. Initialize the OV519 bridge and OV76xx/OV7648 sensor path.
+11. Initialize the OV519 bridge and OV7xx0 sensor path. The code uses an OV7648-class path when PID high is `0x76`, otherwise an OV7620-style fallback table.
 12. Select the streaming interface alt, open/attach/start iso transfer.
 13. Reassemble MJPEG frames from OV519-delimited iso packets.
 14. Decode JPEG to a 4-byte-per-pixel display buffer and swizzle it into an Xbox texture.
@@ -107,7 +107,7 @@ Important current behavior: `XCam_Init()` may return `XCAM_STATUS_OK` after atte
 | File | Role |
 |---|---|
 | `src/Camera-test/main.cpp` | RXDK test harness, D3D8 setup, UI, input, preview texture creation, calls the `XCam_*` API. Some comments/UI strings still say YUY2 even though the texture is A8R8G8B8. |
-| `src/Camera-test/xb_cam.cpp` | Camera implementation: device-tree walk, hub scan/reset, owned node creation, descriptor parsing, OV519/OV76xx bring-up, iso streaming, MJPEG assembly, picojpeg decode, swizzled display copy. |
+| `src/Camera-test/xb_cam.cpp` | Camera implementation: device-tree walk, hub scan/reset, owned node creation, descriptor parsing, OV519/OV7xx0 bring-up, iso streaming, MJPEG assembly, picojpeg decode, swizzled display copy. |
 | `src/Camera-test/xb_cam.h` | Public API. Top comments need updating because they still describe the retired async class-driver model. |
 | `src/Camera-test/xbox_usb.h` | Xbox USB structs, URB helpers, descriptors, class-driver declarations, and iso structs used by this project. |
 | `src/Camera-test/picojpeg.cpp/.h` | Software baseline JPEG decoder used for MJPEG frames. |
