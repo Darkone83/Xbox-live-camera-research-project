@@ -105,7 +105,7 @@ The OV7648 path applies reset, QVGA mode, sensor window, bridge geometry for 320
 2. `SET_INTERFACE(alt)` using the parsed interface and alt
 3. `ISOCH_OPEN_ENDPOINT` using the parsed endpoint address and max packet size
 4. contiguous iso buffer allocation: `8 * maxpkt`
-5. frame/JPEG/RGB buffer allocation
+5. frame/JPEG/4-byte display buffer allocation
 6. fill `USBD_ISOCH_BUFFER_DESCRIPTOR.Pattern[p] = maxpkt` for all 8 packets
 7. `ISOCH_ATTACH_BUFFER`
 8. `ISOCH_START_TRANSFER(ASAP)`
