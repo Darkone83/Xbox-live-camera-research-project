@@ -106,9 +106,9 @@ Important current behavior: `XCam_Init()` may return `XCAM_STATUS_OK` after atte
 
 | File | Role |
 |---|---|
-| `src/Camera-test/main.cpp` | RXDK test harness, D3D8 setup, UI, input, preview texture creation, calls the `XCam_*` API. Some comments/UI strings still say YUY2 even though the texture is A8R8G8B8. |
+| `src/Camera-test/main.cpp` | RXDK test harness, D3D8 setup, UI, input, preview texture creation, calls the `XCam_*` API. |
 | `src/Camera-test/xb_cam.cpp` | Camera implementation: device-tree walk, hub scan/reset, owned node creation, descriptor parsing, OV519/OV7xx0 bring-up, iso streaming, MJPEG assembly, picojpeg decode, swizzled display copy. |
-| `src/Camera-test/xb_cam.h` | Public API. Top comments need updating because they still describe the retired async class-driver model. |
+| `src/Camera-test/xb_cam.h` | Public API for init, shutdown, streaming-state checks, logging, and draw-to-texture. |
 | `src/Camera-test/xbox_usb.h` | Xbox USB structs, URB helpers, descriptors, class-driver declarations, and iso structs used by this project. |
 | `src/Camera-test/picojpeg.cpp/.h` | Software baseline JPEG decoder used for MJPEG frames. |
 | `src/Camera-test/dbg.cpp/.h` | On-screen and `D:\xb_cam.txt` logging. |
@@ -133,5 +133,4 @@ Important current behavior: `XCam_Init()` may return `XCAM_STATUS_OK` after atte
 - Only the 320×240 path has been exercised as the validated path.
 - Larger modes and alternate settings are not profiled.
 - `XCam_Init()` return semantics should be tightened if this becomes a reusable driver API.
-- Some source comments and UI labels still use legacy YUY2/RGB24/class-driver wording.
 - `xb_cam.h` declares older multi-camera helper APIs that are not implemented in the current `xb_cam.cpp`.
