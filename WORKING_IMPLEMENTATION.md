@@ -194,13 +194,6 @@ A future cleanup should return `XCAM_STATUS_OPEN_FAILED` if `s_streaming` remain
 
 ## 10. Current source cleanup notes
 
-The implementation is working, but stale names/comments remain:
+The source comments/UI wording have been cleaned to match the current MJPEG -> picojpeg -> A8R8G8B8 display path. One legacy function name remains: `Cam_DecodeJpegToYUY2()`. Despite the name, it decodes JPEG into the current 4-byte display buffer.
 
-- `xb_cam.h` top comment still describes the retired async class-driver model.
-- `main.cpp` still says the path is not runtime validated.
-- `main.cpp` UI/comments still say YUY2 in several places.
-- `Cam_DecodeJpegToYUY2()` name is legacy.
-- `CAM_FRAME_BYTES` and some comments still mention RGB24/YUY2.
-- `xb_cam.h` declares multi-camera helper APIs that are not implemented in `xb_cam.cpp`.
-
-These are documentation/comment cleanup items, not evidence that the implemented path is still theoretical.
+`xb_cam.h` still declares reserved multi-camera helper APIs that are not implemented in `xb_cam.cpp`; the public usable path today is `XCam_Init()` / `XCam_IsStreaming()` / `XCam_DrawToSurface()` / `XCam_Shutdown()`.
