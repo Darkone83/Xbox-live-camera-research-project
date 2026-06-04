@@ -5,14 +5,14 @@
     A minimal RXDK diagnostic harness for the xb_cam camera interface.
     It drives XCam_Init() / XCam_DrawToSurface() / XCam_Shutdown() and reports
     the outcome on screen so the camera path can be exercised on real
-    hardware. This is a RESEARCH tool: the underlying camera access is
-    reconstructed from static analysis and is NOT runtime validated, so the
-    point of this program is to show *where* the sequence succeeds or fails.
+    hardware. This is a RESEARCH tool around a real hardware-validated path;
+    the screen output and logs show where camera bring-up, streaming, and draw
+    steps succeed or fail.
 
     Detailed per-stage logging is emitted by xb_cam.cpp via OutputDebugString
     (visible over the debug/serial channel). This harness surfaces the final
     XCam_Init() return code and the streaming state on screen, and draws the
-    live YUY2 preview when the camera streams.
+    live decoded MJPEG preview when the camera streams.
 
     Controls
     --------
@@ -27,10 +27,10 @@
     BTN_* mask from GetButtons(). Edges are derived locally in ButtonEdges().
 
     Camera-not-found is a first-class outcome: if XCam_Init() reports that the
-    camera could never be detected (CameraSetting key missing / CameraStatusPath
-    never populated), the harness shows a friendly "CAMERA NOT FOUND" screen
-    instead of a raw NTSTATUS dump, and offers a retry. A later-stage failure
-    (open / format / start) still shows the technical result + return code.
+    camera could never be detected by the manual USB path, the harness shows a
+    friendly "CAMERA NOT FOUND" screen instead of a raw status dump, and offers
+    a retry. A later-stage failure still shows the technical result + return
+    code.
 
     RXDK constraints honoured
     -------------------------
@@ -86,8 +86,8 @@ extern "C" {
 #define TXT_CH          16   /* legacy; unused with cam_font */
 
 /* Preview quad: 320x240 source scaled 1.5x -> 480x360, centred-ish         */
-#define CAM_TEX_W       512    /* pow2 alloc for swizzled YUY2 (uses 320) */
-#define CAM_TEX_H       256    /* pow2 alloc for swizzled YUY2 (uses 240) */
+#define CAM_TEX_W       512    /* pow2 alloc for swizzled A8R8G8B8 (uses 320) */
+#define CAM_TEX_H       256    /* pow2 alloc for swizzled A8R8G8B8 (uses 240) */
 #define CAM_VIEW_W      480
 #define CAM_VIEW_H      360
 #define CAM_VIEW_X      ((SCR_W - CAM_VIEW_W) / 2)
@@ -141,7 +141,7 @@ static WORD                s_prevMask = 0;       /* for button edge detection */
 static int                 s_state = ST_IDLE;
 static int                 s_initResult = 0;       /* last XCam_Init() rc   */
 static DWORD               s_frameCount = 0;       /* preview frames drawn  */
-static BOOL                s_camTexOK = FALSE;    /* YUY2 texture created  */
+static BOOL                s_camTexOK = FALSE;    /* preview texture created */
 
 /*---------------------------------------------------------------------------
     Tiny text formatting helpers (no CRT string funcs)
@@ -229,7 +229,7 @@ static void DrawSolidRect(int x, int y, int w, int h, DWORD color)
     s_pDev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, v, sizeof(VERT_PC));
 }
 
-/* Draw a textured quad from the camera texture (YUY2). */
+/* Draw a textured quad from the camera preview texture. */
 static void DrawCamQuad(int x, int y, int w, int h)
 {
     VERT_PCT v[4];
@@ -245,9 +245,8 @@ static void DrawCamQuad(int x, int y, int w, int h)
     v[2].x = fx; v[2].y = fh; v[2].z = 0.0f; v[2].rhw = 1.0f; v[2].color = 0xFFFFFFFF; v[2].u = 0.0f; v[2].v = vm;
     v[3].x = fw; v[3].y = fh; v[3].z = 0.0f; v[3].rhw = 1.0f; v[3].color = 0xFFFFFFFF; v[3].u = um;   v[3].v = vm;
 
-    /* Xbox extension: enable YUV->RGB conversion during sampling.
-       Colour comes from the texture; alpha from diffuse (opaque) so the
-       preview can't be blended away by YUY2's undefined alpha channel.   */
+    /* Colour comes from the decoded A8R8G8B8 texture; alpha comes from diffuse
+       (opaque) so the preview cannot be blended away by source alpha quirks. */
     s_pDev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1); /* texture */
     s_pDev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
     s_pDev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2); /* diffuse */
@@ -406,7 +405,7 @@ static void DrawPreview(void)
     else
         DrawSolidRect(CAM_VIEW_X, CAM_VIEW_Y, CAM_VIEW_W, CAM_VIEW_H, 0xFF000000);
 
-    DrawText(CAM_VIEW_X, 52, "LIVE PREVIEW  320X240 YUY2", COL_TEXT);
+    DrawText(CAM_VIEW_X, 52, "LIVE PREVIEW  320X240 MJPEG", COL_TEXT);
 
     pos = 0;
     StrAppend(line, &pos, "STREAMING: ");
@@ -419,7 +418,7 @@ static void DrawPreview(void)
     DrawText(40, CAM_VIEW_Y + CAM_VIEW_H + 40, line, COL_DIM);
 
     if (!s_camTexOK)
-        DrawText(40, CAM_VIEW_Y + CAM_VIEW_H + 64, "WARN: YUY2 TEXTURE NOT CREATED", COL_FAIL);
+        DrawText(40, CAM_VIEW_Y + CAM_VIEW_H + 64, "WARN: PREVIEW TEXTURE NOT CREATED", COL_FAIL);
 
     DrawFooter("Y=STOP   B=EXIT");
 }
@@ -460,10 +459,11 @@ static void BeginCameraTest(void)
     s_pDev->EndScene();
     s_pDev->Present(NULL, NULL, NULL, NULL);
 
-    /* Lazily create the YUY2 preview texture once. */
+    /* Lazily create the A8R8G8B8 preview texture once. */
     if (s_pCamTex == NULL) {
-        /* Swizzled YUY2 needs power-of-2 dims; alloc 512x256 and use only the
-           top-left 320x240. xb_cam swizzles the frame in via XGSwizzleRect. */
+        /* Swizzled A8R8G8B8 uses power-of-2 dims here; alloc 512x256 and use
+           only the top-left 320x240. xb_cam swizzles the frame in via
+           XGSwizzleRect. */
         hr = s_pDev->CreateTexture(CAM_TEX_W, CAM_TEX_H, 1, 0,
             D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &s_pCamTex);
         s_camTexOK = SUCCEEDED(hr);
@@ -480,9 +480,8 @@ static void BeginCameraTest(void)
     else if ((s_initResult == -1 ||
         s_initResult == (int)XCAM_STATUS_NO_DEVICE) &&
         !XCam_IsStreaming()) {
-        /* The camera could not be found at all: CameraSetting key missing or
-           CameraStatusPath never populated by usbcamd. (We also confirm the
-           stream never started, so a rare post-start failure that also returns
+        /* The camera could not be found at all by the manual USB path. We also
+           confirm the stream never started, so a rare post-start failure that returns
            -1 is not misreported as "not found".) Fail gracefully with a
            friendly message rather than a raw NTSTATUS dump.                  */
         s_state = ST_NOTFOUND;
