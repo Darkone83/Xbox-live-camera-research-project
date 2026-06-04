@@ -2,7 +2,7 @@
 ## Team Resurgent / Darkone83
 
 > **STATUS: HARDWARE-VERIFIED.** Describes the on-wire format the EyeToy actually
-> delivers and how the working driver (`src/Camera-Test/xb_cam.cpp`, `Cam_IsoComplete` +
+> delivers and how the working driver (`examples/xb_cam.cpp`, `Cam_IsoComplete` +
 > `Cam_DecodeJpegToYUY2`) reassembles and decodes it. This replaces the earlier
 > (wrong) claim that the camera outputs raw **RGB24 / I420**. It does not. It
 > outputs **baseline MJPEG**.
@@ -91,9 +91,11 @@ MCUSPerRow 20  MCUSPerCol 30   (MCU = 16x8)
 - **scanType 2 = YH2V1:** MCU is 16×8 px = two horizontal 8×8 luma blocks. Block
   offsets into picojpeg's MCU buffers for `nbx=2, nby=1` are `{0, 64}`.
 - The decoder feeds bytes through `Cam_JpgFeed` (a cursor over `s_jpegBuf`).
-- **Output is BGRA** to match `D3DFMT_A8R8G8B8` byte order, with **R and B
-  swapped** in the write to correct the camera's channel order (the blue-cast fix).
-  Grayscale (`comps==1`) writes `B=G=R=Y`.
+- **Output is a 4-byte-per-pixel texture source buffer** for the swizzled
+  `D3DFMT_A8R8G8B8` preview path. The current color write intentionally places
+  decoded R/G/B bytes into the slots used by the Xbox display path; do not treat
+  this as ordinary portable BGRA output. Grayscale (`comps==1`) writes the same
+  value to all color slots.
 
 Decoded luma sanity on the bench (proving a real image well before display worked):
 `luma min 34, max 252, avg 149, center 199` on a bright frame.
@@ -114,7 +116,7 @@ iso completion (per 6144-byte buffer, 8 packets):
 draw (per present, decode only on new frame):
   if completedFrames changed:
     copy s_frameReady -> s_jpegBuf
-    picojpeg decode -> s_rgb (BGRA, 512x256 buffer, image in top-left 320x240)
+    picojpeg decode -> s_rgb (4-byte 512x256 texture source, image in top-left 320x240)
   XGSwizzleRect(s_rgb, 512*4, NULL, texBits, 512, 256, 0, 4)   ; font path
   draw textured quad (A8R8G8B8, no YUVENABLE)
 ```
