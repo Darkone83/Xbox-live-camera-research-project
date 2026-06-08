@@ -203,7 +203,8 @@ static int Cam_GetVidPid(IUsbDevice* dev, int* vid, int* pid)
     return 1;
 }
 
-/* is this VID/PID one of our cameras? EyeToy 054C:0155, Live Vision 045E:028C */
+/* is this VID/PID one of our cameras? EyeToy 054C:0155, Xbox Video Camera (Japan
+   Video Chat "Xbox Cam") 045E:028C -- NOT the Xbox 360 Live Vision camera */
 static int Cam_IsCameraId(int vid, int pid)
 {
     if (vid == 0x054C && pid == 0x0155) return 1;

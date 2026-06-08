@@ -1,19 +1,25 @@
 # Original Xbox Camera — Reverse-Engineering Research Log
 ## Team Resurgent / Darkone83
 
-> **STATUS (superseded): class-driver model.** This older section claimed the camera is driven as a standard USB
-> isochronous-video device via the XAPI USB framework (`IUsbDevice`/`IUsbInit` +
-> `SubmitRequest`/iso endpoints). The homebrew path is a **USB class driver** that
-> registers with the framework and attaches to the camera on connect.
+> **Heads up — this is the old log, kept for the trail it leaves, not as instructions.**
+> The two driver models worked out below were both wrong in the end. This section
+> argued the camera is a standard USB iso-video device that the framework enumerates
+> and a class driver attaches to on connect. An earlier branch chased an
+> IOCTL/registry/usbcamd model (talking to a pre-loaded system driver from usermode);
+> that's covered and buried in §9. The actual shipped driver does neither — it claims
+> the camera manually off the device tree and replays the OV519 registers. For how it
+> really works, read `WORKING_IMPLEMENTATION.md`; where this log disagrees with it,
+> the working doc wins.
 >
-> An earlier branch of this investigation pursued an **IOCTL / registry / usbcamd
-> handle-open** model (talking to a pre-loaded system driver from usermode). That
-> model was **superseded** — see §9. The RE facts gathered then (camera object
-> layout, vtable, OHCI confirmation, EyeToy patch) remain valid and are kept below.
+> The hardware facts gathered here held up — the camera object layout, the OHCI
+> confirmation, the EEPROM descriptor, the EyeToy compatibility notes — so they're
+> kept below for reference.
 
-This is the investigation log. The build-facing docs are `FINDINGS_SUMMARY.md`
-(overview), `BUILD_SPEC.md` (plan + symbol maps), `USB_TRANSPORT.md` (transfer
-chain), `CAMERA_INIT.md` (lifecycle), and the headers `xbox_usb.h` / `xb_cam.h`.
+This is the investigation log, warts and all. The current build-facing docs are
+`summary.md` (overview), `WORKING_IMPLEMENTATION.md` (the proven pipeline),
+`OV519_OV7648_INIT.md` and `MJPEG_FRAME_FORMAT.md` (the register and frame detail),
+`USB Transport.md` (transfer chain), `Camera init.md` (lifecycle), and the headers
+`xbox_usb.h` / `xb_cam.h`.
 
 ---
 
@@ -35,9 +41,11 @@ chain), `CAMERA_INIT.md` (lifecycle), and the headers `xbox_usb.h` / `xb_cam.h`.
 
 ## 1. Overview & verdict
 
-The original Xbox camera (Xbox Live Vision "Xbox Cam"; Sony EyeToy compatible) is
-the only-ever use of which is the "Xbox Video Chat" title (MS-124 / ScreenChat).
-Reversing that XBE — with FID-applied framework symbol names — established:
+The only retail software that ever used the original Xbox camera was the Japan-only
+"Xbox Video Chat" title (MS-124 / ScreenChat), built for the first-party **Xbox Video
+Camera** — the rare "Xbox Cam," not the later Xbox 360 "Xbox Live Vision" camera. The
+EyeToy is register-compatible with it. Reversing that XBE — with FID-applied framework
+symbol names — is where this log started, and at the time it pointed us at:
 
 **The camera is a standard USB isochronous-video device.** It is enumerated by the
 USB framework; a class driver attaches on connect; formats are descriptor-derived
@@ -54,8 +62,8 @@ stack needs to be written; the OHCI/USBD/HCD layer is present and named.
 
 ## 2. Hardware
 
-### Xbox Live Vision camera (first-party)
-- Sensor/bridge: OmniVision (OV530-class bridge). USB `VID 0x045E / PID 0x028C`.
+### Xbox Video Camera / "Xbox Cam" (first-party, Japan-only)
+- Sensor/bridge: OmniVision OV530 (register-compatible with the EyeToy's OV519). USB `VID 0x045E / PID 0x028C`.
 - Output: RGB24 or I420 (NOT YUY2). Default 320x240 RGB24.
 
 ### Sony EyeToy — CONFIRMED COMPATIBLE
