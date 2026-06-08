@@ -1,11 +1,11 @@
 # OV519 ISO PACKET + MJPEG FRAME FORMAT — reference
 ## Team Resurgent / Darkone83
 
-> **STATUS: HARDWARE-VERIFIED.** Describes the on-wire format the EyeToy actually
-> delivers and how the working driver (`examples/xb_cam.cpp`, `Cam_IsoComplete` +
-> `Cam_DecodeJpegToYUY2`) reassembles and decodes it. This replaces the earlier
-> (wrong) claim that the camera outputs raw **RGB24 / I420**. It does not. It
-> outputs **baseline MJPEG**.
+This is the on-wire format the EyeToy actually delivers, and how the working driver
+(`src/Camera-test/xb_cam.cpp`, `Cam_IsoComplete` + `Cam_DecodeJpegToYUY2`) reassembles
+and decodes it — verified against the live stream. An earlier version of these notes
+claimed the camera outputs raw RGB24 / I420. It doesn't. It outputs baseline MJPEG, and
+once you see why, the whole pipeline makes sense.
 
 ---
 
@@ -50,7 +50,7 @@ USHORT ConditionCode:4; }`).
 > garbage. Using `BytesRead` is mandatory, not an optimization.
 
 These three structs (`Pattern[8]`, `PacketStatus[8]`, `BytesRead:12`) are the load-
-bearing iso definitions and live in the authoritative header `examples/xbox_usb.h`.
+bearing iso definitions and live in the authoritative header `src/Camera-test/xbox_usb.h`.
 
 ---
 
@@ -124,5 +124,5 @@ draw (per present, decode only on new frame):
 ## References
 - gspca Linux `ov519.c` (`ov519_pkt_scan`, the SOF/EOF header).
 - picojpeg (Rich Geldreich) — baseline JPEG, integer-only.
-- `examples/xbox_usb.h` — `USBD_ISOCH_*` struct definitions (authoritative).
+- `src/Camera-test/xbox_usb.h` — `USBD_ISOCH_*` struct definitions (authoritative).
 - `WORKING_IMPLEMENTATION.md` §5–6.

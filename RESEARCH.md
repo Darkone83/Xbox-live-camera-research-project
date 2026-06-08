@@ -290,7 +290,7 @@ this branch (object layout §7, OHCI confirmation, EyeToy patch §8) carry forwa
 (Kernel surface that IS available to homebrew, all confirmed `xboxkrnl.pdb` exports:
 `NtCreateFile/NtOpenFile/NtReadFile/NtWriteFile/NtClose/NtDeviceIoControlFile`,
 `Rtl*AnsiString`, `ExQueryNonVolatileSetting`, `ObCreateObject`, plus the `Mm*`
-contiguous-memory and `Ob`/`Io` primitives in `xbox_native.h`. Object names for
+contiguous-memory and `Ob`/`Io` primitives in `xbox_kernel.h`. Object names for
 file/device paths are ANSI (`PANSI_STRING`), root `ObDosDevicesDirectory()`.)
 
 ---
@@ -326,14 +326,15 @@ file/device paths are ANSI (`PANSI_STRING`), root `ObDosDevicesDirectory()`.)
 
 ## 12. References
 
-- `FINDINGS_SUMMARY.md` — high-level overview.
-- `BUILD_SPEC.md` — build plan, RE→XDK symbol map, §3.5 attach contract, §3.6 voice
-  reference, §3.7 SLIX worked source, phased plan.
-- `USB_TRANSPORT.md` — the full transfer chain, dispatch, enumeration, frame path.
-- `CAMERA_INIT.md` — register-free verdict + lifecycle.
+- `WORKING_IMPLEMENTATION.md` — how the shipped driver actually works (start here).
+- `OV519_OV7648_INIT.md` — the register sequence the driver replays.
+- `MJPEG_FRAME_FORMAT.md` — the iso framing and JPEG decode.
+- `USB Transport.md` — the full transfer chain, dispatch, enumeration, and frame path of the retail XBE.
+- `Camera init.md` — sensor detection, the `.set` map, and the instrumentation method.
+- `summary.md` — short overview.
 - `xbox_usb.h` — the self-contained USB framework header (interfaces, `_URB`,
   descriptors, macros).
-- `xb_cam.h/.cpp`, `xbox_native.h`, `cameratest.cpp` — driver skeleton, kernel shim,
+- `xb_cam.h/.cpp`, `xbox_kernel.h`, `main.cpp` — driver, kernel shim,
   D3D8 harness.
 - Source assets: `xapilib.lib`/`Xapilibp.lib`, `xvoice.lib`, `usbd.lib`/`ohcd.lib`,
   `usb.h`/`usb100.h`/`usbxapi.h`/`mm.h`, `USB.zip` (SLIX driver + linkinit examples).

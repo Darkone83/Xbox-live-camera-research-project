@@ -30,7 +30,7 @@ wTotalLength=0x59 (89)  bNumInterfaces=1  bConfigurationValue=1
 bmAttributes=0x80 (bus powered)  MaxPower=0xFA*2 = 500 mA
 ```
 
-### *** DEVICE/INTERFACE COUNT — the EyeToy compatibility crux ***
+### Device/interface count — the EyeToy compatibility crux
 Byte **@0x00A4 = `0x01`** (the config descriptor's `bNumInterfaces`). The wiki labels
 this "Number of USB devices/interfaces." **Xbox Cam = 1; Sony EyeToy = 3.**
 

@@ -3,8 +3,8 @@
 When the Xbox bugchecks, the fatal handler (CerBios LCD / debug screen) shows a
 **BugCheck code** (Arg1) plus up to 4 arguments. This is the lookup for the codes
 you'll actually hit doing USB/iso driver work, with what each *usually* means in
-*our* context. Full table: `bugcodes.h` (233 codes). Companion: BUILD_SPEC §0
-(instrumentation) — pair the code with the EIP→.map resolver to land on the function.
+*our* context. Full table: `bugcodes.h` (233 codes). The instrumentation method is in `Camera init.md`
+— pair the code with the EIP→.map resolver to land on the function.
 
 > Reading the screen: Arg1 = bugcheck code (below). For exception bugchecks
 > (0x1E, 0x8E), the args carry the **exception code, faulting EIP, and address** —

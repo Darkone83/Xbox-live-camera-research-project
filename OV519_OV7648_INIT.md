@@ -1,13 +1,13 @@
 # OV519 BRIDGE + OV7648 SENSOR — register init reference
 ## Team Resurgent / Darkone83
 
-> **STATUS: HARDWARE-VERIFIED.** This is the register sequence the working driver
-> (`src/Camera-Test/xb_cam.cpp`, `Cam_InitSensor`) actually applies to bring a Sony EyeToy
-> from cold to a streaming 320×240 MJPEG source. It replaces the project's earlier
-> claim that "the OV519 self-configures and no register replay is needed" — that was
-> false. The gspca Linux `ov519` driver and the `.set` register tables (this repo's
-> `set/`) were the correct reference all along; they are **primary**, not "reference
-> only."
+This is the register sequence the working driver (`src/Camera-test/xb_cam.cpp`,
+`Cam_InitSensor`) applies to bring a Sony EyeToy from cold to a streaming 320×240 MJPEG
+source — verified on hardware. It's worth being blunt about this, because an earlier
+version of the project insisted the OV519 self-configures and needs no register replay.
+That was wrong. The gspca Linux `ov519` driver and the `.set` tables in this repo's
+`set/` were the right reference the whole time; treat them as the source of the init,
+not as background reading.
 
 The single most important line in this whole file: **`reg 0x72 = 0xEE`** in the
 bridge bring-up. With bit 4 (0x10) set (the hardware default `0xFF`), the sensor is

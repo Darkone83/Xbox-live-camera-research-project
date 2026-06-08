@@ -1,63 +1,59 @@
-# Camera Research — Document Index & Status
-## Team Resurgent / Darkone83
+# Document index
+**Team Resurgent / Darkone83**
 
-**The driver works on hardware.** This index is the map of the revised research set
-after that milestone. Read top-to-bottom for the working truth; the historical RE is
-kept but clearly marked.
+The driver works on hardware, so this set is split between the docs that describe the
+*working* driver and the older reverse-engineering log that got us there. If you only
+read one thing, read `WORKING_IMPLEMENTATION.md`. Where anything here disagrees with
+it, it wins — it's the one that matches what actually runs.
 
-## Authoritative (the working truth)
-| Doc | What |
+## Start here — how the driver actually works
+
+| Doc | What it covers |
 |---|---|
-| `WORKING_IMPLEMENTATION.md` | The proven end-to-end pipeline. **Start here.** Where anything else disagrees, this wins. |
+| `WORKING_IMPLEMENTATION.md` | The end-to-end pipeline as shipped. The source of truth. |
 | `OV519_OV7648_INIT.md` | The exact OV519 bridge + OV7648 sensor register sequence. |
-| `MJPEG_FRAME_FORMAT.md` | OV519 iso packet framing + the MJPEG/JPEG payload + decode. |
-| `summary.md` | Executive summary (rewritten to the working model). |
-| `README.md` | App/build overview (rewritten; lists the shipped files). |
+| `MJPEG_FRAME_FORMAT.md` | OV519 iso packet framing, the MJPEG payload, and the decode. |
+| `summary.md` | Short overview of what the code does. |
+| `README.md` | App/build overview and the file list. |
 
-## Reference / hardware facts (kept, thesis-independent)
-| Doc | What |
+## Reference — hardware facts, independent of any driver model
+
+| Doc | What it covers |
 |---|---|
-| `bugcheck reference.md` | BugCheck codes + debugging workflow. Unchanged. |
-| `EEPROM Descriptor.md` | First-party Xbox Cam descriptor parse (corrected interpretive notes). |
-| `Camera init.md` | Revised: corrected verdict + the detection recipe, `.set` map, and instrumentation method that proved correct. |
+| `EEPROM Descriptor.md` | The first-party Xbox Video Camera's USB descriptor, parsed from its EEPROM. |
+| `Camera init.md` | The sensor-detection recipe, the `.set` map, and the debugging method that carried the bring-up. |
+| `bugcheck reference.md` | BugCheck codes and the debugging workflow. The most reusable doc here for any USB/iso work. |
 
-## Historical RE of the retail XBE (reference, NOT the implemented path)
-| Doc | What |
+## Historical — the RE log (kept for the trail, not as instructions)
+
+| Doc | What it covers |
 |---|---|
-| `RESEARCH.md` | The investigation log. Status-bannered: two models in it are superseded. |
-| `USB Transport.md` | Accurate trace of how the retail Video Chat XBE works — not how the homebrew driver works. |
+| `RESEARCH.md` | The investigation log. Two driver models in it were later disproven; it's banner-flagged and kept honest. |
+| `USB Transport.md` | An accurate trace of how the *retail* Video Chat XBE drives the camera — not how this homebrew driver works. |
 
-## Archived (approach not taken)
-| Doc | Why archived |
-|---|---|
-| `archive/class driver guide.md` | The class-driver/`XInitDevices` attach model — never shipped (camera isn't system-enumerated). |
-| `archive/build_spec.md` | Build plan for that model. Symbol maps/struct provenance may still help; the strategy is dead. |
+## Source and headers
 
-## Source & headers
-- `src/Camera-Test/xb_cam.cpp`, `src/Camera-Test/main.cpp`, `src/Camera-Test/xb_cam.h` — the shipped driver/harness.
-- `src/Camera-Test/xbox_usb.h` — **the master authoritative USB header** (see below).
-- `set/*.set` — OV register tables (now primary; `7648519.set` = EyeToy).
+The shipped driver and harness live in `src/Camera-test/`:
 
----
+- `xb_cam.cpp`, `main.cpp`, `xb_cam.h` — the driver and the test harness.
+- `xbox_usb.h` — the authoritative USB header (see below).
+- `set/*.set` — the OV register tables. `7648519.set` is the EyeToy.
 
-## xbox_usb.h is the master authoritative USB header
+## Why `xbox_usb.h` is authoritative
 
-All USB struct layouts, the `_URB` union, the `USB_BUILD_*` macros, the
-`USBD_STATUS` table, and the `IUsbDevice`/`IUsbInit` interfaces are defined in
-**`xbox_usb.h`**. It includes only `<xtl.h>`. Every other doc that quotes a struct or
-offset defers to it; where a reverse-engineering trace's raw byte offsets disagree
-with the header, **the header wins** — and that rule is now proven on hardware, not
-just asserted.
+Every USB struct layout, the `_URB` union, the `USB_BUILD_*` macros, the `USBD_STATUS`
+table, and the `IUsbDevice`/`IUsbInit` interfaces are defined in `xbox_usb.h`, which
+pulls in nothing but `<xtl.h>`. When a reverse-engineering trace's raw byte offsets
+disagree with this header, trust the header — and that's not just a style rule anymore,
+it's been proven on hardware.
 
-Verified against the shipped driver: `xbox_usb.h` already contains the three iso
-definitions the working code depends on, with the exact fields that made streaming
-work —
-- `USBD_ISOCH_BUFFER_DESCRIPTOR.Pattern[8]` (per-frame byte request; must be filled),
-- `USBD_ISOCH_PACKET_STATUS_WORD { BytesRead:12; ConditionCode:4; }` (real per-packet
-  length), and
+The three iso definitions the working stream depends on are all in there, with the
+exact fields that made it work:
+
+- `USBD_ISOCH_BUFFER_DESCRIPTOR.Pattern[8]` — the per-frame byte request; has to be filled.
+- `USBD_ISOCH_PACKET_STATUS_WORD { BytesRead:12; ConditionCode:4; }` — the real per-packet length.
 - `USBD_ISOCH_TRANSFER_STATUS.PacketStatus[8]`.
 
-Every USB symbol referenced by `xb_cam.cpp` resolves inside `xbox_usb.h`; nothing in
-the working driver depends on the external XDK `usb.h`. No struct edits are required
-to make it authoritative — it already is. Keep `src/Camera-Test/xbox_usb.h` as the single
-canonical copy and delete/avoid any divergent duplicates.
+Every USB symbol `xb_cam.cpp` touches resolves inside `xbox_usb.h`; nothing in the
+working driver leans on the external XDK `usb.h`. Keep `src/Camera-test/xbox_usb.h` as
+the single canonical copy and don't let a divergent duplicate creep in.

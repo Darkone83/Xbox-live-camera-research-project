@@ -1,14 +1,14 @@
-# Camera init — bring-up (REVISED to the working implementation)
+# Camera init — bring-up notes
 ## Team Resurgent / Darkone83
 
-> **STATUS: REVISED.** The previous version of this file carried the verdict
-> *"the EyeToy is a standard USB iso-video device — no register replay; the OV519
-> handles the sensor internally; the `.set` tables are reference-only."* **All of
-> that was wrong.** On hardware the driver replays a substantial OV519 + OV7648
-> register init, and the `.set`/gspca data was the source of it. The corrected,
-> authoritative bring-up lives in `WORKING_IMPLEMENTATION.md` and
-> `OV519_OV7648_INIT.md`. This file is kept for the parts that proved correct: the
-> sensor detection recipe, the `.set` map, and the instrumentation method.
+An earlier version of this file carried the verdict that *"the EyeToy is a standard USB
+iso-video device — no register replay; the OV519 handles the sensor internally; the
+`.set` tables are reference-only."* All of that turned out to be wrong. On hardware the
+driver replays a substantial OV519 + OV7648 register init, and the `.set`/gspca data was
+exactly where it came from. The corrected, authoritative bring-up lives in
+`WORKING_IMPLEMENTATION.md` and `OV519_OV7648_INIT.md`. This file is kept for the parts
+that did hold up: the sensor detection recipe, the `.set` map, and the instrumentation
+method that proved everything out.
 
 ---
 

@@ -1,9 +1,9 @@
 # USB transport + camera control — reverse-engineering notes
 
 **Team Resurgent / Darkone83.** How the Video Chat XBE drives the Sony EyeToy,
-mapped from `default.xbe` + `xboxkrnl.pdb` + the XDK headers. Companion to
-`CAMERA_INIT.md`. As of this pass the path is traced **end to end** — app loop
-down to OHCI — so this doc is now the master map.
+mapped from `default.xbe` + `xboxkrnl.pdb` + the XDK headers. Companion to `Camera init.md`. The path is traced end to end here — app loop down to
+OHCI — so this is the master map of the retail XBE (not of the homebrew driver; for
+that, see `WORKING_IMPLEMENTATION.md`).
 
 > This is the architecture trace (how the original XBE works). For authoritative
 > **struct layouts and the typed API**, use `xbox_usb.h` (the `_URB` union,
@@ -61,7 +61,7 @@ sets `DAT_00221944`/`48`.
   XAPILIB doing its normal USB job (same path `XInitDevices` uses for controllers).
 - **The XDK headers expose no USB device API** — only XInput (HID/gamepad/MU),
   which can't see a camera. Everything below is internal XAPILIB reached via raw
-  kernel exports (`Io*`, `Ob*`, `Mm*`, `Hal*`, `Ke*`) — see `xbox_native.h`.
+  kernel exports (`Io*`, `Ob*`, `Mm*`, `Hal*`, `Ke*`) — see `xbox_kernel.h`.
 - **The model is Windows-USB-like (USBD/URB).** Request blocks carry a
   function/type byte and are dispatched to per-operation handlers.
 
@@ -191,7 +191,7 @@ registers — every leaf call is XAPILIB transport:
 
 So the EyeToy is a **standard USB iso-video device**: formats from descriptors,
 selection by alt-setting, frames over iso. The `.set` register tables are the PC
-approach and are **not used**. (Full verdict + revised plan in `CAMERA_INIT.md`.)
+approach and are **not used**. (This was the old verdict and it was wrong — the homebrew driver does replay the registers. See `Camera init.md` and `OV519_OV7648_INIT.md`.)
 
 Structs from these handlers:
 ```
@@ -460,5 +460,5 @@ and double-buffers.
 > Iso URB layout is no longer an unknown — the full iso arms (`IsochOpenEndpoint`
 > etc.), `_USBD_ISOCH_TRANSFER_STATUS`, `_USBD_ISOCH_BUFFER_DESCRIPTOR`, and the
 > `USB_BUILD_ISOCH_*` macros are folded verbatim from XDK `usb.h` into `xbox_usb.h`,
-> and the SLIX driver (`USB.zip`, see BUILD_SPEC §3.7) is a worked example of the
+> and the SLIX driver is a worked example of the
 > open→start→attach sequence. Per-packet OHCI iso-TD fields are standard OHCI spec.
